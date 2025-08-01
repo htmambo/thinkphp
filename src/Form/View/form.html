@@ -1,0 +1,38 @@
+<extend name="$layuitpl"/>
+<block name="css">
+    <foreach name="css" item="file">
+        <link rel="stylesheet" href="__PUBLIC__/{$file}" media="all">
+    </foreach>
+</block>
+<block name="style">
+    <style>
+        .layui-form-radio {
+            margin-left: 0px !important;
+            padding-right: 0px !important;
+            margin-right: 0px !important;
+        }
+        .hs-radios div:first-child {
+            margin-left: 10px !important;
+        }
+        .hs-radios div:last-child {
+            margin-right: 10px !important;
+        }
+        {$style}
+    </style>
+</block>
+<block name="body">
+    {$content}
+</block>
+<block name="script">
+    <foreach name="js" item="file">
+    <script src="__PUBLIC__/{$file}" charset="utf-8"></script>
+    </foreach>
+
+    <script>
+        layui.use(['form'{$laymodule}], function () {
+            var $ = layui.jquery,
+                form = layui.form;
+            {$script}
+        });
+    </script>
+</block>

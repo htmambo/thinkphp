@@ -1,0 +1,34 @@
+{
+    "name": "hoping/thinkphp",
+    "description": "ThinkPHP 3.2.x继续维护",
+    "require": {
+        "php": ">=7.4",
+        "ext-pdo": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "monolog/monolog": "^2.10",
+        "geoip2/geoip2": "^2.13",
+        "nikic/php-parser": "^v5.6"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Think\\": "src/",
+	    "Phinx\\": "Phinx/"
+        },
+        "files": [
+            "src/ThinkPHP.php"
+	]
+    },
+    "authors": [
+        {
+            "name": "hoping",
+            "email": "htmambo@gmail.com"
+        }
+    ],
+    "config": {
+        "preferred-install": "dist"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

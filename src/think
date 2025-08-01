@@ -1,0 +1,19 @@
+#!/usr/bin/env php
+<?php
+/**
+ * 迁移TP5的命令行模式
+ */
+define('ROOT_PATH', __DIR__ . '/');
+
+// 检测PHP环境
+if (version_compare(PHP_VERSION, '7.4.0', '<')) die('require PHP >= 7.4.0 !');
+/**
+ * 系统调试设置
+ * 项目正式部署后请设置为false
+ */
+defined('APP_DEBUG') || define('APP_DEBUG', True);
+
+/**
+ * 引入核心入口
+ */
+require __DIR__ . '/vendor/autoload.php';

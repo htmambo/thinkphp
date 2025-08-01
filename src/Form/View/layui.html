@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>
+        <block name="title">
+            {$pageTitle}
+        </block>
+    </title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="__STATIC__/layui-v{:C('LAYUI_VERSION')}/css/layui.css" media="all">
+    <link rel="stylesheet" href="__CSS__/layui.css" media="all">
+    <style>
+        .layui-nav {
+            display: block;
+            height: 36px;
+            margin-bottom: 10px;
+        }
+        .layui-nav h3 {
+            float: left;
+            font-size: 24px;
+            line-height: 36px;
+        }
+        .layui-nav .layui-nav-item {
+            float: right;
+            line-height: 36px;
+        }
+    </style>
+    <block name="css">
+
+    </block>
+    <block name="style"></block>
+</head>
+<body>
+<block name="content">
+<div class="layuimini-container">
+    <div class="layuimini-main">
+        <!-- 头部 -->
+        <if condition="$pageTitle || $quickLink">
+            <if condition="$quickLink"> <!-- 导航项目 -->
+                <notempty name="quickLink"> <!-- 右侧的导航项目 -->
+                    <ul class="layui-nav" lay-filter="">
+                        <notempty name="pageTitle">
+                            <h3>
+                                {$pageTitle}
+                            </h3>
+                        </notempty>
+                        <volist name="quickLink" id="menu">
+                            <php>
+                                $l = '';
+                                if($menu['link'] == '#') {
+                                $l = 'layui-this';
+                                }
+                            </php>
+                            <li class="layui-nav-item {$l}">
+                                <a href="{$menu.link}">{$menu.title}</a>
+                                <if condition="$menu[sub]">
+                                    <dl class="layui-nav-child"> <!-- 二级菜单 -->
+                                        <foreach name="menu.sub" item="sub">
+                                            <dd><a href="{$sub.link}">{$sub.title}</a></dd>
+                                        </foreach>
+                                    </dl>
+                                </if>
+                            </li>
+                        </volist>
+                    </ul>
+                </notempty>
+                <!-- END .navbar-collapse -->
+            </if>
+        </if>
+        <!-- /头部 -->
+
+
+
+
+        <!--主区-->
+        <block name="body"></block>
+    </div>
+</div>
+</block>
+<!-- 底部 -->
+<script src="__STATIC__/layui-v{:C('LAYUI_VERSION')}/layui.js"></script>
+<script src="__JS__/config.js"></script>
+<script>
+    var rooturl = '__ROOT__';
+    layui.config({
+        base: '__JS__/' //静态资源所在路径
+    }).extend({
+        index: 'lib/index' //主入口模块
+    }).use('index', function () {
+
+    });
+</script>
+<script>
+    layui.use(['form'], function () {
+        var $ = layui.jquery;
+
+        //全局判断ajax操作session是否过期
+        $(document).ajaxComplete(function (event, xhr, settings) {
+            if(xhr.hasOwnProperty('responseJSON')) {
+                var res = xhr.responseJSON;
+                if(res.status == 0 || res.status == 1) {
+                    return;
+                }
+                if(res.status == 403) {
+                    layer.msg(res.info);
+                    top.window.location = xhr.responseJSON.url;
+                }
+            }
+        });
+    });
+</script>
+<block name="script"></block>
+<!-- /底部 -->
+</body>
+</html>
