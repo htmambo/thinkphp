@@ -463,14 +463,14 @@ class Think
             $className = $tagLib;
             $tagLib    = substr($tagLib, strrpos($tagLib, '\\') + 1);
         } else {
-            $className = 'Think\\Driver\TagLib\\' . ucwords($tagLib);
+            $className = 'Think\\TagLib\\' . ucwords($tagLib);
         }
         $tLib = \Think\Think::instance($className);
         $that = $this;
         foreach ($tLib->getTags() as $name => $val) {
             $tags = array($name);
             if (isset($val['alias'])) {
-// 别名设置
+                // 别名设置
                 $tags   = explode(',', $val['alias']);
                 $tags[] = $name;
             }
