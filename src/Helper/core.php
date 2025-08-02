@@ -28,14 +28,14 @@ return array(
         'app_init'        => array(
         ),
         'app_end'         => array(
-            'Think\Driver\Behavior\ShowPageTraceBehavior', // 页面Trace显示
-            'Think\Driver\Behavior\ShowRuntimeBehavior',   // 代码执行时间
+            'Think\Behavior\ShowPageTraceBehavior', // 页面Trace显示
+            'Think\Behavior\ShowRuntimeBehavior',   // 代码执行时间
         ),
         'view_parse'      => array(
-            'Think\Driver\Behavior\ParseTemplateBehavior', // 模板解析 支持PHP、内置模板引擎和第三方模板引擎
+            'Think\Behavior\ParseTemplateBehavior', // 模板解析 支持PHP、内置模板引擎和第三方模板引擎
         ),
         'template_filter' => array(
-            'Think\Driver\Behavior\ContentReplaceBehavior', // 模板输出替换
+            'Think\Behavior\ContentReplaceBehavior', // 模板输出替换
         ),
     ),
 );

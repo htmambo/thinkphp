@@ -99,7 +99,7 @@ class Think
                 chmod($runtimefile, 0644);
             } else {
                 // 调试模式加载系统默认的配置文件
-                C(include CORE_PATH . 'Conf/debug.php');
+                C(include CORE_PATH . 'Helper/Conf/debug.php');
                 // 读取应用调试配置文件
                 if (is_file(CONF_PATH . 'debug.php')) {
                     C(include CONF_PATH . 'debug.php');

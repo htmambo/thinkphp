@@ -21,18 +21,21 @@ class Log
     const DEBUG  = 'DEBUG';     // 调试: 调试信息
     const SQL    = 'SQL';       // SQL：SQL语句 注意只在调试模式开启时有效
 
-    // Monolog实例
-    protected static $logger = null;
+    /**
+     * @var Logger
+     * Monolog 日志记录器实例
+     */
+    public static $logger = null;
 
     // 初始化
     public static function init($config = array())
     {
         if (self::$logger === null) {
             self::$logger = new Logger('ThinkPHP');
-            
+
             $logPath = isset($config['log_path']) ? $config['log_path'] : C('LOG_PATH');
             $logFile = $logPath . date('y_m_d') . '.log';
-            
+
             // 确保日志目录存在
             if (!is_dir($logPath)) {
                 mkdir($logPath, 0755, true);

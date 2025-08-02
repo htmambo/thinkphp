@@ -14,11 +14,12 @@
     "autoload": {
         "psr-4": {
             "Think\\": "src/",
-	    "Phinx\\": "Phinx/"
+            "Phinx\\": "Phinx/"，
+            "Readability\\": "Readability/",
         },
         "files": [
             "src/ThinkPHP.php"
-	]
+        ]
     },
     "authors": [
         {
