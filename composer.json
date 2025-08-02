@@ -14,8 +14,8 @@
     "autoload": {
         "psr-4": {
             "Think\\": "src/",
-            "Phinx\\": "Phinx/"，
-            "Readability\\": "Readability/",
+            "Phinx\\": "Phinx/",
+            "Readability\\": "Readability/"
         },
         "files": [
             "src/ThinkPHP.php"
