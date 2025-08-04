@@ -23,9 +23,8 @@ class Radios
     use Field;
 
     protected function _build($value = null) {
+        $list = $this->parseOptions();
         $options = $this->options;
-        $list = $options['list'];
-        unset($options['list']);
         if(is_null($value) && $options['value']) {
             $value = $options['value'];
             unset($options['value']);

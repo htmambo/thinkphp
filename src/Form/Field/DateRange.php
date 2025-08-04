@@ -16,7 +16,7 @@ use Think\Form\Traits\Field;
  * Class DateRange
  * @package HS\Html\Field
  *
- * @method DateRange splitchr(chr $chr)     //分隔字符
+ * @method DateRange splitchr(string $chr)     //分隔字符
  */
 class DateRange extends DatetimeRange
 {

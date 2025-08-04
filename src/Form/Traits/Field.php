@@ -69,23 +69,21 @@ trait Field
             'style'     => []
         ];
         if ($this instanceof Buttons) {
-            $start = '<div';
+            $content = '<div';
         } else {
-            $start = '<div class="layui-form-item" ' . ($styleOptions['hasBorder']?'pane':'');
+            $content = '<div class="layui-form-item" ' . ($styleOptions['hasBorder']?'pane':'');
         }
         if($this->options['divid']) {
-            $start .= ' id="' . $this->options['divid'] . '"';
+            $content .= ' id="' . $this->options['divid'] . '"';
         }
-        $start .= '>';
-        $content = $start;
+        $content .= '>';
         if ($this->label) {
             $content .= $this->showLabel($this->name, $this->label);
-            if(!$styleOptions['inline']) {
-//                $content .= '</div>' . $start;
-            }
         }
         $class = 'layui-input-block';
+        $inlineTips = false;
         if ($this->options['tips'] && !$styleOptions['tooltip']) {
+            // 有些组件的提示信息是放在输入框旁边的，有些是放在下面
             $class = 'layui-input-inline';
         }
         if(isset($this->options['class'])) {
@@ -116,6 +114,28 @@ trait Field
         return $this->input($class, $value);
     }
 
+    protected function parseOptions()
+    {
+        $options = $this->options;
+        $list = [];
+        if(isset($options['list'])) {
+            $list = $options['list'];
+            unset($options['list']);
+        } else if(isset($options['options'])) {
+            $list = $options['options'];
+            unset($options['options']);
+        }
+        if(is_string($list) && strpos($list, ',') !== false) {
+            $list = explode(',', $list);
+        } else if(is_string($list) && strpos($list, '|') !== false) {
+            $list = explode('|', $list);
+        } else if(is_string($list) && strpos($list, ':') !== false) {
+            $list = explode(':', $list);
+        } else if(!is_array($list)) {
+            $list = [];
+        }
+        return $list;
+    }
     /**
      * 生成文本框(按类型)
      *
@@ -166,6 +186,11 @@ trait Field
 
     public function __construct($name)
     {
+        if (is_array($name)) {
+            $this->options = $name;
+            $name          = isset($this->options['name']) ? $this->options['name'] : '';
+            unset($this->options['name']);
+        }
         $this->name = $name;
     }
 

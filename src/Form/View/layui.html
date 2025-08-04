@@ -27,6 +27,31 @@
             float: right;
             line-height: 36px;
         }
+        .layui-form-radio {
+            margin-left: 0px !important;
+            padding-right: 0px !important;
+            margin-right: 0px !important;
+        }
+        .hs-radios div:first-child {
+            margin-left: 10px !important;
+        }
+        .hs-radios div:last-child {
+            margin-right: 10px !important;
+        }
+        .layui-transfer-data.dragsort .layui-select {
+            clear:both;
+            height: 32px;
+        }
+        .layui-transfer-data.dragsort .layui-select div {
+            float: left;
+            width: auto;
+            line-height: 30px;
+        }
+        .layui-transfer-data.dragsort .layui-select i {
+            float: right;
+            font-size: 24px;
+            color: red;
+        }
     </style>
     <block name="css">
 
@@ -71,10 +96,6 @@
             </if>
         </if>
         <!-- /头部 -->
-
-
-
-
         <!--主区-->
         <block name="body"></block>
     </div>
@@ -82,17 +103,7 @@
 </block>
 <!-- 底部 -->
 <script src="__STATIC__/layui-v{:C('LAYUI_VERSION')}/layui.js"></script>
-<script src="__JS__/config.js"></script>
-<script>
-    var rooturl = '__ROOT__';
-    layui.config({
-        base: '__JS__/' //静态资源所在路径
-    }).extend({
-        index: 'lib/index' //主入口模块
-    }).use('index', function () {
-
-    });
-</script>
+<script src="__STATIC__/lay-config.js"></script>
 <script>
     layui.use(['form'], function () {
         var $ = layui.jquery;

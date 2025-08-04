@@ -27,9 +27,8 @@ class Buttons
     }
 
     protected function _build($value = null) {
+        $list = $this->parseOptions();
         $options = $this->options;
-        $list = $options['list'];
-        unset($options['list']);
         $html = [];
         foreach ($list as $opt) {
             $html[] = $this->input('button', null, $opt);

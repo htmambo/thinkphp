@@ -56,6 +56,8 @@ class Form
         'captcha'        => Field\Captcha::class,
         'tree'           => Field\Tree::class,
         'markdown'       => Field\Markdown::class,
+
+        'dragsort'       => Field\Dragsort::class,
     ];
     use BaseForm;
 }

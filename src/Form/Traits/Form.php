@@ -88,13 +88,19 @@ trait Form
      */
     protected $fields = [];
 
+    protected $ui = 'layui';
     /**
      * Form constructor.
      * @param array $data
      */
-    public function __construct($data = [])
+    public function __construct($data = [], $ui = 'layui')
     {
         $this->data = $data ?: array();
+        $this->ui = $ui;
+        // 标签库标签开始标记
+        C('TAGLIB_BEGIN', '<');
+        // 标签库标签结束标记
+        C('TAGLIB_END', '>');
     }
 
     /**
@@ -109,7 +115,7 @@ trait Form
         $view = Think::instance('Think\View');
         $view->assign($this->render());
         $tplPath = dirname(dirname(__FILE__)) . '/View/';
-        $view->assign('layuitpl', $tplPath . 'layui.html');
+        $view->assign('uitpl', $tplPath . $this->ui . '.html');
         $tpl = $tplPath . 'form.html';
         return $view->display($this->view ?: $tpl);
     }
@@ -212,10 +218,7 @@ trait Form
             $data['style'][] = '.layui-form-pane .layui-input-inline .xm-select-title{left: -1px;}';
         }
         $data['style'][] = 'textarea.layui-input {height: auto;}';
-        if (I('get.test')) {
-            dump($this->options);
-            dump($data['style']);
-        }
+
         $keys    = ['laymodule', 'js', 'script', 'css', 'style'];
         foreach ($this->fields as $field) {
             $result = $field->render(null, $this->options);
@@ -325,6 +328,20 @@ trait Form
         exit;
     }
 
+    public function addField($field, $label = '', $type = 'text', $options = [])
+    {
+        if (is_string($field)) {
+            $field = ['name' => $field];
+        }
+        if ($type) {
+            $field['type'] = $type;
+        }
+        if ($options) {
+            $field = array_merge($field, $options);
+        }
+        return $this->__call($type, [$field, $label]);
+    }
+
     /**
      * Generate a Field object and add to form builder if Field exists.
      *
@@ -337,11 +354,12 @@ trait Form
     public function __call($method, $arguments)
     {
         if ($className = static::findFieldClass($method)) {
-            $field = $arguments[0];
+            $field = array_shift($arguments);
 
             $element = new $className($field);
-            if ($arguments[1]) {
-                $element->label($arguments[1]);
+	    if($arguments) {
+                $label = array_shift($arguments);
+                $element->label($label?:'');
             }
             if (is_string($field) && $this->data && isset($this->data[$field])) {
                 $element->value($this->data[$field]);
