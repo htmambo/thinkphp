@@ -190,13 +190,13 @@ class ThinkPhpPrinter extends Standard
         ];
         $result = $this->processThinkLang($this->p($node->expr));
         return $map[$node->type] . ' ' . $result;
-        static $map = [
-            Expr\Include_::TYPE_INCLUDE      => 'include',
-            Expr\Include_::TYPE_INCLUDE_ONCE => 'include_once',
-            Expr\Include_::TYPE_REQUIRE      => 'require',
-            Expr\Include_::TYPE_REQUIRE_ONCE => 'require_once',
-        ];
-        return $this->pPrefixOp(Expr\Include_::class, $map[$node->type] . ' ', $node->expr, $precedence, $lhsPrecedence);
+        // static $map = [
+        //     Expr\Include_::TYPE_INCLUDE      => 'include',
+        //     Expr\Include_::TYPE_INCLUDE_ONCE => 'include_once',
+        //     Expr\Include_::TYPE_REQUIRE      => 'require',
+        //     Expr\Include_::TYPE_REQUIRE_ONCE => 'require_once',
+        // ];
+        // return $this->pPrefixOp(Expr\Include_::class, $map[$node->type] . ' ', $node->expr, $precedence, $lhsPrecedence);
     }
 
     // Other
