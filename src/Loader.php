@@ -144,15 +144,16 @@ class Loader
         }
 
         $name = strstr($class, '\\', true);
-        // if (is_dir(CORE_PATH . 'Third/' . $name)) {
-        //     $path = CORE_PATH . 'Third/';
-        // } else {
-            // 检测自定义命名空间 否则就以模块为命名空间
-            $namespace = C('AUTOLOAD_NAMESPACE');
-            $path      = isset($namespace[$name]) ? dirname($namespace[$name]) . '/' : APP_PATH;
-        // }
+        // 检测自定义命名空间 否则就以模块为命名空间
+        $namespace = C('AUTOLOAD_NAMESPACE');
+        $path      = isset($namespace[$name]) ? dirname($namespace[$name]) . '/' : APP_PATH;
 
         $filename = $path . str_replace('\\', '/', $class) . '.php';
+        if (is_file($filename)) {
+            return $filename;
+        }
+        // 兼容一下原来的类文件命名方式
+        $filename = $path . str_replace('\\', '/', $class) . '.class.php';
         if (is_file($filename)) {
             return $filename;
         }

@@ -483,7 +483,7 @@ class Think
                     $tag = $name;
                 }
                 $n1            = empty($val['attr']) ? '(\s*?)' : '\s([^' . $end . ']*)';
-                $this->tempVar = array($tagLib, $tag);
+                // $this->tempVar = array($tagLib, $tag);
 
                 if (!$closeTag) {
                     $patterns = '/' . $begin . $parseTag . $n1 . '\/(\s*?)' . $end . '/is';

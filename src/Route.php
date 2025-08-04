@@ -158,8 +158,10 @@ class Route
                 }
             }
         }
-
-        list($path, $host) = explode('@', $path, 2);
+        $host = '';
+        if(strpos($path, '@') !== false) {
+            list($path, $host) = explode('@', $path, 2);
+        }
         if ($host) {
             // 检测是否有 scheme，如果没有则补上
             if (false === strpos($host, '://')) {
@@ -213,10 +215,7 @@ class Route
             $vars = array_merge($params, $vars);
         }
         // 从路径中解析 模块、控制器、方法
-        $path = $info['path'];
-        if (substr($path, 0, 1) == '/') {
-            $path = substr($path, 1);
-        }
+        $path = isset($info['path'])?ltrim($info['path'], '/'):'';
         $param = explode('/', $path);
         $urls  = self::processMCA($param);
 
