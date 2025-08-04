@@ -119,7 +119,9 @@ class Hook
                 trace('[ ' . $tag . ' ] --START--', '', 'INFO');
             }
             foreach (self::$tags[$tag] as $name) {
+                trace('[ ' . $tag . '@' . $name . ' ] --START--', '', 'INFO');
                 $result = self::exec($name, $tag, $params);
+                trace('[ ' . $tag . '@' . $name . ' ] --END--', '', 'INFO');
                 if (false === $result) {
                     // 如果返回false 则中断插件执行
                     return;

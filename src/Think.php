@@ -166,8 +166,8 @@ class Think
             $info  = ($label ? $label . ':' : '') . print_r($value, true);
             $level = strtoupper($level);
 
-            if ((defined('IS_AJAX') && IS_AJAX) || !C('SHOW_PAGE_TRACE') || $record) {
-                Log::record($info, $level, $record);
+            Log::record($info, $level, $record);
+            if ((defined('IS_AJAX') && IS_AJAX) || $record) {
             } else {
                 if (!isset($_trace[$level]) || count($_trace[$level]) > C('TRACE_MAX_RECORD')) {
                     $_trace[$level] = array();

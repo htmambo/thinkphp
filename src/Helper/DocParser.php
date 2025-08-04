@@ -225,7 +225,7 @@ class DocParser {
             if($tmp) {
                 $result[$key] = array_shift($tmp);
             }
-            if(substr($result[$key], 0, 1)=='$') {
+            if($result[$key] && substr($result[$key], 0, 1)=='$') {
                 $result[$key] = substr($result[$key], 1);
             }
         }
