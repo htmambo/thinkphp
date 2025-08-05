@@ -1,18 +1,10 @@
 <?php
 
-// +----------------------------------------------------------------------
-// | ThinkPHP [ WE CAN DO IT JUST THINK IT ]
-// +----------------------------------------------------------------------
-// | Copyright (c) 2006-2014 http://thinkphp.cn All rights reserved.
-// +----------------------------------------------------------------------
-// | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
-// +----------------------------------------------------------------------
-// | Author: liu21st <liu21st@gmail.com>
-// +----------------------------------------------------------------------
-
 namespace Think\Form\Traits;
 
 use Think\Think;
+use Think\Form\Tabs;
+use Think\Form\Tab;
 
 /**
  * Class Form
@@ -65,6 +57,16 @@ use Think\Think;
 trait Form
 {
     /**
+     * @var array 所有表单元素
+     */
+    private $elements = [];
+
+    /**
+     * @var Tabs|null 当前活动的tabs组件
+     */
+    private $activeTabs = null;
+
+    /**
      * @var array
      */
     protected $data;
@@ -83,12 +85,13 @@ trait Form
         'scripts' => [],
     ];
 
-    /**
-     * @var array
-     */
-    protected $fields = [];
-
     protected $ui = 'layui';
+    protected $view = '';
+    /**
+     * @var Tabs|null
+     */
+    private $tabs = null;
+
     /**
      * Form constructor.
      * @param array $data
@@ -101,6 +104,40 @@ trait Form
         C('TAGLIB_BEGIN', '<');
         // 标签库标签结束标记
         C('TAGLIB_END', '>');
+    }
+
+    /**
+     * 魔术方法，用于处理表单字段的添加
+     *
+     * @param string $name
+     * @param array $arguments
+     * @return $this
+     */
+    public function __call($name, $arguments)
+    {
+        if ($className = static::findFieldClass($name)) {
+            if ($this->activeTabs !== null && $this->activeTabs->isInTabOperation()) {
+                $this->activeTabs->addField($name, ...$arguments);
+                return $this;
+            }
+            $this->activeTabs = null;
+            $field = array_shift($arguments);
+
+            $element = new $className($field);
+            if($arguments) {
+                $label = array_shift($arguments);
+                $element->label($label?:'');
+            }
+            if (is_string($field) && $this->data && isset($this->data[$field])) {
+                $element->value($this->data[$field]);
+            }
+
+            $this->elements[] = &$element;
+
+            return $element;
+        }
+
+        throw new \RuntimeException("Field type [$name] does not exist.");
     }
 
     /**
@@ -127,17 +164,19 @@ trait Form
     {
         $this->buttons(
             [
-                [
-                    'value' => '重置',
-                    'type' => 'reset',
-                    'class' => 'layui-btn layui-btn-danger'
-                ],
-                [
-                    'value' => '提交',
-                    'type' => 'submit',
-                    'lay-submit' => $this->options['submit'],
-                    'lay-filter' => $this->options['filter']
-                ]
+                'list' => [
+                    [
+                        'value' => '重置',
+                        'type' => 'reset',
+                        'class' => 'layui-btn layui-btn-danger'
+                    ],
+                    [
+                        'value' => '提交',
+                        'type' => 'submit',
+                        'lay-submit' => isset($this->options['submit'])?$this->options['submit']:'',
+                        'lay-filter' => isset($this->options['filter'])?$this->options['filter']:''
+                    ]
+                          ]
             ]
         );
     }
@@ -182,7 +221,7 @@ trait Form
         $content .= '>';
 
         $data = [
-            'content' => $content,
+            'content' => [$content],
             'laymodule' => [],
             'js' => [],
             'script' => [],
@@ -218,33 +257,29 @@ trait Form
             $data['style'][] = '.layui-form-pane .layui-input-inline .xm-select-title{left: -1px;}';
         }
         $data['style'][] = 'textarea.layui-input {height: auto;}';
+        // 如果存在tabs，则渲染tabs内容
+        if ($this->tabs !== null) {
+            $data['content'][] = $this->tabs->render();
+        }
 
         $keys    = ['laymodule', 'js', 'script', 'css', 'style'];
-        foreach ($this->fields as $field) {
-            $result = $field->render(null, $this->options);
-            $data['content'] .= $result['content'];
+        foreach ($this->elements as $element) {
+            if ($element instanceof Tabs) {
+                $result = $element->render($this->options);
+            } else if ($element instanceof Tab) {
+            } else {
+                $result = $element->render(null, $this->options);
+            }
+            $data['content'][] = $result['content'];
             foreach ($keys as $k) {
-                if ($result[$k]) {
+                if (isset($result[$k]) && $result[$k]) {
                     $data[$k] = array_merge($data[$k], $result[$k]);
                 }
                 $data[$k] = array_unique($data[$k]);
             }
         }
-        //
-        //        $data['content'] .= call_user_func_array([Form\Builder::instance(), 'buttons'], [
-        //            [
-        //                'value' => '重置',
-        //                'type'  => 'reset',
-        //                'class' => 'layui-btn layui-btn-danger'
-        //            ],
-        //            [
-        //                'value'      => '提交',
-        //                'type'       => 'submit',
-        //                'lay-submit' => $this->options['submit'],
-        //                'lay-filter' => $this->options['filter']
-        //            ]
-        //        ]);
-        $data['content'] .= '</form>';
+        $data['content'][] = '</form>';
+        $data['content'] = implode("\n", $data['content']);
 
         $script = '';
         $laymodule = [];
@@ -330,6 +365,7 @@ trait Form
 
     public function addField($field, $label = '', $type = 'text', $options = [])
     {
+        $this->activeTabs = null;
         if (is_string($field)) {
             $field = ['name' => $field];
         }
@@ -340,39 +376,6 @@ trait Form
             $field = array_merge($field, $options);
         }
         return $this->__call($type, [$field, $label]);
-    }
-
-    /**
-     * Generate a Field object and add to form builder if Field exists.
-     *
-     * @param string $method
-     * @param array  $arguments
-     *
-     * @return Field
-     * @throws \Think\Exception
-     */
-    public function __call($method, $arguments)
-    {
-        if ($className = static::findFieldClass($method)) {
-            $field = array_shift($arguments);
-
-            $element = new $className($field);
-	    if($arguments) {
-                $label = array_shift($arguments);
-                $element->label($label?:'');
-            }
-            if (is_string($field) && $this->data && isset($this->data[$field])) {
-                $element->value($this->data[$field]);
-            }
-
-            $this->fields[] = &$element;
-
-            return $element;
-        }
-
-        E("Field type [$method] does not exist.");
-
-        return new Field\Nullable();
     }
 
     /**
@@ -421,4 +424,32 @@ trait Form
     {
         return $this->options[$name] = $value;
     }
+
+    /**
+     * 创建新的tabs实例
+     * @return Tabs
+     */
+    public function tabs()
+    {
+        $tabs = new Tabs();
+        $this->elements[] = &$tabs;
+        $this->activeTabs = $tabs;
+        return $tabs;
+    }
+
+    /**
+     * 创建新的tab
+     * @param string $name
+     * @return $this
+     * @throws \Exception
+     */
+    public function tab(string $name)
+    {
+        if ($this->activeTabs === null) {
+            throw new \Exception('No active tabs. Call tabs() first.');
+        }
+        $this->activeTabs->tab($name, $this->options);
+        return $this->activeTabs;
+    }
+
 }

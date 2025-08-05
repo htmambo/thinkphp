@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>
         <block name="title">
-            {$pageTitle}
+        <if condition="isset($pageTitle) && $pageTitle">{$pageTitle}<else/>通用表单</if>
         </block>
     </title>
     <meta name="renderer" content="webkit">
@@ -38,6 +38,9 @@
         .hs-radios div:last-child {
             margin-right: 10px !important;
         }
+        .layui-transfer-data.dragsort li {
+            height: 40px;
+        }
         .layui-transfer-data.dragsort .layui-select {
             clear:both;
             height: 32px;
@@ -52,6 +55,9 @@
             font-size: 24px;
             color: red;
         }
+        .layui-transfer-data.dragsort .layui-unselect {
+            border-style: dotted;
+        }
     </style>
     <block name="css">
 
@@ -63,37 +69,36 @@
 <div class="layuimini-container">
     <div class="layuimini-main">
         <!-- 头部 -->
-        <if condition="$pageTitle || $quickLink">
-            <if condition="$quickLink"> <!-- 导航项目 -->
-                <notempty name="quickLink"> <!-- 右侧的导航项目 -->
-                    <ul class="layui-nav" lay-filter="">
-                        <notempty name="pageTitle">
-                            <h3>
-                                {$pageTitle}
-                            </h3>
-                        </notempty>
-                        <volist name="quickLink" id="menu">
-                            <php>
-                                $l = '';
-                                if($menu['link'] == '#') {
-                                $l = 'layui-this';
-                                }
-                            </php>
-                            <li class="layui-nav-item {$l}">
-                                <a href="{$menu.link}">{$menu.title}</a>
-                                <if condition="$menu[sub]">
-                                    <dl class="layui-nav-child"> <!-- 二级菜单 -->
-                                        <foreach name="menu.sub" item="sub">
-                                            <dd><a href="{$sub.link}">{$sub.title}</a></dd>
-                                        </foreach>
-                                    </dl>
-                                </if>
-                            </li>
-                        </volist>
-                    </ul>
-                </notempty>
-                <!-- END .navbar-collapse -->
-            </if>
+        <if condition="isset($pageTitle) || isset($quickLink)">
+            <!-- 导航项目 -->
+            <notempty name="quickLink"> <!-- 右侧的导航项目 -->
+                <ul class="layui-nav" lay-filter="">
+                    <notempty name="pageTitle">
+                        <h3>
+                            {$pageTitle}
+                        </h3>
+                    </notempty>
+                    <volist name="quickLink" id="menu">
+                        <php>
+                            $l = '';
+                            if($menu['link'] == '#') {
+                            $l = 'layui-this';
+                            }
+                        </php>
+                        <li class="layui-nav-item {$l}">
+                            <a href="{$menu.link}">{$menu.title}</a>
+                            <if condition="$menu[sub]">
+                                <dl class="layui-nav-child"> <!-- 二级菜单 -->
+                                    <foreach name="menu.sub" item="sub">
+                                        <dd><a href="{$sub.link}">{$sub.title}</a></dd>
+                                    </foreach>
+                                </dl>
+                            </if>
+                        </li>
+                    </volist>
+                </ul>
+            </notempty>
+            <!-- END .navbar-collapse -->
         </if>
         <!-- /头部 -->
         <!--主区-->

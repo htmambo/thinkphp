@@ -39,11 +39,13 @@ trait Field
      * @var string
      */
     protected $label          = '';
+    protected $type           = '';
     /**
      * 表单元素配置信息
      * @var array
      */
     protected $options        = [];
+    protected $escapeHtml     = false;
     private   $skipValueTypes = ['file', 'password', 'radio', 'checkbox', 'button'];
 
     /**
@@ -68,12 +70,12 @@ trait Field
             'css'       => [],
             'style'     => []
         ];
-        if ($this instanceof Buttons) {
+        if ($this instanceof Buttons || $this instanceof Button || $this->type == 'button') {
             $content = '<div';
         } else {
             $content = '<div class="layui-form-item" ' . ($styleOptions['hasBorder']?'pane':'');
         }
-        if($this->options['divid']) {
+        if(isset($this->options['divid'])) {
             $content .= ' id="' . $this->options['divid'] . '"';
         }
         $content .= '>';
@@ -82,6 +84,7 @@ trait Field
         }
         $class = 'layui-input-block';
         $inlineTips = false;
+
         if ($this->options['tips'] && !$styleOptions['tooltip']) {
             // 有些组件的提示信息是放在输入框旁边的，有些是放在下面
             $class = 'layui-input-inline';
@@ -109,9 +112,7 @@ trait Field
 
     protected function _build($value = null)
     {
-        $tmp   = explode('\\', get_class($this));
-        $class = strtolower(array_pop($tmp));
-        return $this->input($class, $value);
+        return $this->input($this->type, $value);
     }
 
     protected function parseOptions()
@@ -191,8 +192,20 @@ trait Field
             $name          = isset($this->options['name']) ? $this->options['name'] : '';
             unset($this->options['name']);
         }
+        $defaults = [
+            'tips' => '',
+            // 'height' => '',
+            // 'style' => '',
+            // 'value' => ''
+        ];
+        $this->options = array_merge($defaults, $this->options);
         $this->name = $name;
+        $tmp   = explode('\\', get_class($this));
+        $this->type = strtolower(array_pop($tmp));
+        $this->_initialize();
     }
+
+    protected function _initialize(){}
 
     /**
      * 表单元素名称

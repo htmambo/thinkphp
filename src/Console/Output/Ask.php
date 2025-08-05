@@ -185,7 +185,7 @@ class Ask
 
             if ($numMatches > 0 && -1 !== $ofs) {
                 $this->output->write("\0337");
-                $this->output->highlight(substr($matches[$ofs], $i));
+                $this->output->write('<highlight>' . substr($matches[$ofs], $i) . '</highlight>');
                 $this->output->write("\0338");
             }
         }

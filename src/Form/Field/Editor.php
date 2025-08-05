@@ -16,7 +16,7 @@ namespace Think\Form\Field;
  * @package HS\Html\Field
  *
  * @method Editor value(string $content)       //内容
- * @method Editor type(string $editorType)      //编辑器，默认为简易编辑器，可选wang
+ * @method Editor mode(string $editorType)      //编辑器，默认为简易编辑器，可选wang
  */
 class Editor extends Textarea
 {
@@ -26,9 +26,9 @@ class Editor extends Textarea
             $value = $this->options['value'];
         }
         $editortype = 'layedit';
-        if(isset($this->options['type'])){
-            $editortype = $this->options['type'];
-            unset($this->options['type']);
+        if(isset($this->options['mode'])){
+            $editortype = $this->options['mode'];
+            unset($this->options['mode']);
         }
         $this->options['style'] = 'display: none;';
         $id = $this->getIdAttribute($this->name, $this->options)?:$this->name;

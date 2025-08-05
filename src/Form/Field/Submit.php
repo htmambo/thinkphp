@@ -12,22 +12,10 @@
 namespace Think\Form\Field;
 use Think\Form\Traits\Field;
 
-/**
- * Class Buttons
- * @package HS\Html\Field
- *
- */
-class Buttons
+class Submit
 {
     use Field;
-
-    protected function _build($value = null) {
-        $list = $this->parseOptions();
-        $options = $this->options;
-        $html = [];
-        foreach ($list as $opt) {
-            $html[] = $this->input('button', null, $opt);
-        }
-        return implode("\n", $html);
+    protected function _initialize(){
+        $this->type = 'button';
     }
 }

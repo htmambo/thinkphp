@@ -58,6 +58,7 @@ class Form
         'markdown'       => Field\Markdown::class,
 
         'dragsort'       => Field\Dragsort::class,
+        'submit'         => Field\Submit::class,
     ];
     use BaseForm;
 }
