@@ -160,7 +160,7 @@ class Handle
             header('Content-Type:application/json; charset=utf-8');
             $data = [
                 'status' => 0,
-                'message' => $data['message'],
+                'info' => $data['message'],
                 'file' => $data['file'],
                 'line' => $data['line'],
             ];

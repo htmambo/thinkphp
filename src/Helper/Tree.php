@@ -92,15 +92,15 @@ class Tree
             foreach ($ls as $key => $v) {
                 $sub         = [];
                 $v['_level'] = $level;
-                if (empty($v['icon'])) {
-                    $v['icon'] = 'fa-th-list';
-                }
                 if ($this->get_child($v[$this->myid])) {
                     $i   = $level + 1;
                     $sub = $this->buildTree($v[$this->myid], $i, $subname);
                 }
                 if ($sub) {
+                    $v['isParent'] = true;
                     $v[$subname] = $sub;
+                } else {
+                    $v['isParent'] = false;
                 }
                 $tree[] = $v;
             }
