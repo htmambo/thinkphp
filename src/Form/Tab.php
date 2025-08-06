@@ -23,7 +23,7 @@ class Tab
      */
     public function addField($field, $label = '', $type = 'text', $options = [])
     {
-        $element = call_user_func([$this->form, $type], $name, $label, $options);
+        $element = call_user_func([$this->form, $type], $field, $label, $options);
         $this->elements[] = &$element;
         return $this;
     }

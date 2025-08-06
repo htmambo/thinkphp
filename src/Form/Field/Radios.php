@@ -23,7 +23,7 @@ class Radios
     use Field;
 
     protected function _build($value = null) {
-        $list = $this->parseOptions();
+        $list = $this->parseExtra();
         $options = $this->options;
         if(is_null($value) && $options['value']) {
             $value = $options['value'];

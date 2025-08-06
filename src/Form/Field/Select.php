@@ -33,7 +33,7 @@ class Select
      */
     protected function _build($value = null)
     {
-        $list = $this->parseOptions();
+        $list = $this->parseExtra();
         $options = $this->options;
         if (is_null($value) && isset($options['value'])) {
             $value = $options['value'];
@@ -50,34 +50,35 @@ class Select
             $options['xm-select'] = $this->getIdAttribute($this->name, $options);
         }
 
+        $options['class'] = isset($options['class']) ? $options['class'] . (stripos($options['class'], 'layui-input') !== false ? '' : ' layui-input') : 'layui-input';
+        $useFormSelects = isset($options['useFormSelects']) && $options['useFormSelects'];
+        unset($options['useFormSelects']);
+
+        if ($useFormSelects && (!isset($options['multiple']) || !$options['multiple'])) {
+            $options['xm-select-radio'] = "true";
+        }
+        unset($options['multiple']);
+        if($useFormSelects && count($list)>20) {
+            $options['xm-select-search'] = true;
+        }
+
+        $attr = $this->attributes($options);
+
         $html = [];
         foreach ($list as $val => $display) {
             $html[] = $this->getSelectOption($display, $val, $value);
         }
-        $options['class'] = isset($options['class']) ? $options['class'] . (stripos($options['class'], 'layui-input') !== false ? '' : ' layui-input') : 'layui-input';
-
-        if (!isset($options['multiple']) || !$options['multiple']) {
-            $options['xm-select-radio'] = "true";
-        }
-        unset($options['multiple']);
-//        $options['xm-select-search'] = true;
-
-        $attr = $this->attributes($options);
         $list = implode('', $html);
-        return [
-            'laymodule' => [
-                'formSelects',
-            ],
-            'css' => [
-//                'js/lay-module/formSelects/formSelects-v4.css',
-            ],
+        $result = [
+            'laymodule' => [],
             'content' => "<select{$attr}>{$list}</select>",
-            'script' => [
-                'formSelects.render(\'#' . $this->getIdAttribute($this->name, $options) . '\');'
-            ],
-            'style' => [
-            ]
+            'script' => []
         ];
+        if($useFormSelects) {
+            $result['laymodule'][] = 'formSelects';
+            $result['script'][] = 'formSelects.render(\'#' . $this->getIdAttribute($this->name, $options) . '\');';
+        }
+        return $result;
     }
 
     /**

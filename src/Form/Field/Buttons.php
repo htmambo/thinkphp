@@ -22,7 +22,7 @@ class Buttons
     use Field;
 
     protected function _build($value = null) {
-        $list = $this->parseOptions();
+        $list = $this->parseExtra();
         $options = $this->options;
         $html = [];
         foreach ($list as $opt) {

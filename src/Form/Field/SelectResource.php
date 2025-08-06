@@ -34,7 +34,7 @@ class SelectResource extends Select
      */
     protected function _build($value = null)
     {
-        $list = $this->parseOptions();
+        $list = $this->parseExtra();
         $options = $this->options;
         if (is_null($value) && isset($options['value'])) {
             $value = $options['value'];

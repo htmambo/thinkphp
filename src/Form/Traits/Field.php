@@ -115,25 +115,75 @@ trait Field
         return $this->input($this->type, $value);
     }
 
-    protected function parseOptions()
+    protected function parseExtra()
     {
         $options = $this->options;
         $list = [];
         if(isset($options['list'])) {
             $list = $options['list'];
             unset($options['list']);
-        } else if(isset($options['options'])) {
-            $list = $options['options'];
-            unset($options['options']);
+        } else if (isset($options['extra'])) {
+            $list = $options['extra'];
+            unset($options['extra']);
         }
-        if(is_string($list) && strpos($list, ',') !== false) {
-            $list = explode(',', $list);
-        } else if(is_string($list) && strpos($list, '|') !== false) {
-            $list = explode('|', $list);
-        } else if(is_string($list) && strpos($list, ':') !== false) {
-            $list = explode(':', $list);
-        } else if(!is_array($list)) {
+        if(is_array($list)) {
+            return $list;
+        }
+        if(is_string($list)) {
+            $list = trim($list);
+            if(strpos($list, '{') === 0 && strpos($list, '}') === strlen($list) - 1) {
+                $list = json_decode($list, true);
+            } else if(strpos($list, '[') === 0 && strpos($list, ']') === strlen($list) - 1) {
+                $list = json_decode($list, true);
+            } else if(substr($list, 0, 4) === 'SQL:') {
+                $sql = substr($sql, 4);
+                if($sql) {
+                    $list = M()->query($sql);
+                } else {
+                    $list = [];
+                }
+            } else {
+                $sperator = [',', ';', "\n"];
+                $isFinded = false;
+                foreach ($sperator as $sep) {
+                    if (strpos($list, $sep) !== false) {
+                        $list = explode($sep, $list);
+                        $isFinded = true;
+                        break;
+                    }
+                }
+                if(!$isFinded) {
+                    $list = [];
+                }
+            }
+        }
+        if($list) {
+            $tmp = $list;
             $list = [];
+            foreach($tmp as $k => $v) {
+                if (is_array($v)) {
+                    if (isset($v['value']) && isset($v['label'])) {
+                        $list[$v['value']] = $v['label'];
+                    } else if (isset($v['title']) && isset($v['id'])) {
+                        $list[$v['id']] = $v['title'];
+                    }
+                    $list[$k] = $v;
+                } else {
+                    $sperator = [':', '='];
+                    $isFinded = false;
+                    foreach($sperator as $sep) {
+                        if(strpos($v, $sep) !== false) {
+                            list($k, $v) = explode($sep, $v);
+                            $list[$k] = $v;
+                            $isFinded = true;
+                            break;
+                        }
+                    }
+                    if(!$isFinded) {
+                        $list[$k] = $v;
+                    }
+                }
+            }
         }
         return $list;
     }

@@ -131,6 +131,13 @@ trait Form
             if (is_string($field) && $this->data && isset($this->data[$field])) {
                 $element->value($this->data[$field]);
             }
+            // 后面再优化
+            $options = array_shift($arguments);
+            if($options) {
+                foreach($options as $k=>$v) {
+                    $element->$k($v);
+                }
+            }
 
             $this->elements[] = &$element;
 
