@@ -11,7 +11,9 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="__STATIC__/layui-v{:C('LAYUI_VERSION')}/css/layui.css" media="all">
-    <link rel="stylesheet" href="__CSS__/layui.css" media="all">
+    <!--dark-->
+    <link rel="stylesheet" href="__CSS__/layui-theme-dark-selector.css" media="all">
+    <link rel="stylesheet" href="__CSS__/style.css" media="all">
     <style>
         .layui-nav {
             display: block;
@@ -59,9 +61,7 @@
             border-style: dotted;
         }
     </style>
-    <block name="css">
-
-    </block>
+    <block name="css"></block>
     <block name="style"></block>
 </head>
 <body>
@@ -108,7 +108,7 @@
 </block>
 <!-- 底部 -->
 <script src="__STATIC__/layui-v{:C('LAYUI_VERSION')}/layui.js"></script>
-<script src="__STATIC__/lay-config.js"></script>
+<script src="__JS__/lay-config.js"></script>
 <script>
     layui.use(['form'], function () {
         var $ = layui.jquery;
