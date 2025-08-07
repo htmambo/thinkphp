@@ -63,11 +63,11 @@
                         }
                         break;
                     case is_string($item):
-                        if(strlen($item) > 20){
+                        if(mb_strlen($item, 'utf8') > 20){
                             $value = sprintf(
                                 '\'<a class="toggle" title="%s">%s...</a>\'',
                                 htmlentities($item),
-                                htmlentities(substr($item, 0, 20))
+                                htmlentities(mb_substr($item, 0, 20, 'utf8'))
                             );
                         } else {
                             $value = sprintf("'%s'", htmlentities($item));

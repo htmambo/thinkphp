@@ -59,7 +59,7 @@ class Think
     {
         return str_replace(
             array('{', '}', '(', ')', '|', '[', ']', '-', '+', '*', '.', '^', '?'),
-            array('\{', '\}', '\(', '\)', '\|', '\[', '\]', '\-', '\+', '\*', '\.', '\^', '\?'),
+            array('{', '}', '\(', '\)', '\|', '\[', '\]', '\-', '\+', '\*', '\.', '\^', '\?'),
             $str
         );
     }
@@ -147,7 +147,7 @@ class Think
         //模板解析
         $tmplContent = $this->parse($tmplContent);
         // 还原被替换的Literal标签
-        $tmplContent = preg_replace_callback('/<!--###literal(\d+)###-->/is', array($this, 'restoreLiteral'), $tmplContent);
+        $tmplContent = preg_replace_callback('@<!--###literal(\d+)###-->@is', array($this, 'restoreLiteral'), $tmplContent);
         // 添加安全代码
         $tmplContent = '<?php if (!defined(\'CORE_PATH\')) exit();?>' . $tmplContent;
         // 优化生成的php代码
@@ -179,11 +179,12 @@ class Think
             $content = $this->replaceBlock($content, false);
         }
         // 清除可能遗留的block
-        $content = preg_replace('@\s*<block[^>]+></block>@i', '', $content);
+        $reg  = '@\s*' . $begin . 'block[^' . $end . ']+' . $end . $begin . '/block' . $end . '@i';
+        $content = preg_replace($reg, '', $content);
         // 检查PHP语法
         $content = $this->parsePhp($content);
         // 首先替换literal标签内容
-        $content = preg_replace_callback('/' . $begin . 'literal' . $end . '(.*?)' . $begin . '\/literal' . $end . '/is', array($this, 'parseLiteral'), $content);
+        $content = preg_replace_callback('@' . $begin . 'literal' . $end . '(.*?)' . $begin . '/literal' . $end . '@is', array($this, 'parseLiteral'), $content);
 
         // 获取需要引入的标签库列表
         // 标签库只需要定义一次，允许引入多个一次
@@ -212,7 +213,7 @@ class Think
             $this->parseTagLib($tag, $content, true);
         }
         //解析普通模板标签 {$tagName}
-        $content = preg_replace_callback('/(' . $this->config['tmpl_begin'] . ')([^\d\w\s' . $this->config['tmpl_begin'] . $this->config['tmpl_end'] . '].+?)(' . $this->config['tmpl_end'] . ')/is', array($this, 'parseTag'), $content);
+        $content = preg_replace_callback('@(' . $this->config['tmpl_begin'] . ')([^\d\w\s' . $this->config['tmpl_begin'] . $this->config['tmpl_end'] . '].+?)(' . $this->config['tmpl_end'] . ')@is', array($this, 'parseTag'), $content);
         return $content;
     }
 
@@ -221,7 +222,7 @@ class Think
     {
         if (ini_get('short_open_tag')) {
             // 开启短标签的情况要将<?标签用echo方式输出 否则无法正常输出xml标识
-            $content = preg_replace('/(<\?(?!php|=|$))/i', '<?php echo \'\\1\'; ?>' . "\n", $content);
+            $content = preg_replace('@(<\?(?!php|=|$))@i', '<?php echo \'\\1\'; ?>' . "\n", $content);
         }
         // PHP语法检查
         if (C('TMPL_DENY_PHP') && false !== strpos($content, '<?php')) {
@@ -234,7 +235,7 @@ class Think
     protected function parseLayout($content)
     {
         // 读取模板中的布局标签
-        $find = preg_match('/' . $this->config['taglib_begin'] . 'layout\s(.+?)\s*?\/' . $this->config['taglib_end'] . '/is', $content, $matches);
+        $find = preg_match('@' . $this->config['taglib_begin'] . 'layout\s(.+?)\s*?/' . $this->config['taglib_end'] . '@is', $content, $matches);
         if ($find) {
             //替换Layout标签
             $content = str_replace($matches[0], '', $content);
@@ -264,7 +265,7 @@ class Think
         // 解析布局
         $content = $this->parseLayout($content);
         // 读取模板中的include标签
-        $find = preg_match_all('/' . $this->config['taglib_begin'] . 'include\s(.+?)\s*?\/' . $this->config['taglib_end'] . '/is', $content, $matches);
+        $find = preg_match_all('@' . $this->config['taglib_begin'] . 'include\s(.+?)\s*?/' . $this->config['taglib_end'] . '@is', $content, $matches);
         if ($find) {
             for ($i = 0; $i < $find; $i++) {
                 $include = $matches[1][$i];
@@ -283,12 +284,12 @@ class Think
         $begin = $this->config['taglib_begin'];
         $end   = $this->config['taglib_end'];
         // 读取模板中的继承标签
-        $find = preg_match('/' . $begin . 'extend\s(.+?)\s*?\/' . $end . '/is', $content, $matches);
+        $find = preg_match('@' . $begin . 'extend\s(.+?)\s*?/' . $end . '@is', $content, $matches);
         if ($find) {
             //替换extend标签
             $content = str_replace($matches[0], '', $content);
             // 记录页面中的block标签
-            preg_replace_callback('/' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '(.*?)' . $begin . '\/block' . $end . '/is', array($this, 'parseBlock'), $content);
+            preg_replace_callback('@' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '(.*?)' . $begin . '/block' . $end . '@is', array($this, 'parseBlock'), $content);
             // 读取继承模板
             $array   = $this->parseXmlAttrs($matches[1]);
             $content = $this->parseTemplateName($array['name']);
@@ -297,7 +298,7 @@ class Think
             $content = $this->replaceBlock($content);
         } else {
             // 记录页面中的block标签
-            $content = preg_replace_callback('/' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '(.*?)' . $begin . '\/block' . $end . '/is', array($this, 'parseBlock'), $content);
+            $content = preg_replace_callback('@' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '(.*?)' . $begin . '/block' . $end . '@is', array($this, 'parseBlock'), $content);
         }
         return $content;
     }
@@ -394,34 +395,38 @@ class Think
     private function replaceBlock($content, $append = true)
     {
         static $parse = 0;
-        $begin        = $this->config['taglib_begin'];
-        $end          = $this->config['taglib_end'];
-        $reg          = '/(' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . ')(.*?)' . $begin . '\/block' . $end . '/is';
+        $begin = $this->config['taglib_begin'];
+        $end   = $this->config['taglib_end'];
+        $reg1  = '@(' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . ')(.*?)' . $begin . '/block' . $end . '@is';
+        $reg2  = '@' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '@is';
         if (is_string($content)) {
             do {
-                $content = preg_replace_callback($reg, array($this, 'replaceBlock'), $content);
+                $content = preg_replace_callback($reg1, array($this, 'replaceBlock'), $content);
             } while ($parse && $parse--);
-            return $content;
         } elseif (is_array($content)) {
-            if (preg_match('/' . $begin . 'block\sname=[\'"](.+?)[\'"]\s*?' . $end . '/is', $content[3])) {
+            if (preg_match($reg2, $content[3])) {
                 //存在嵌套，进一步解析
                 $parse      = 1;
-                $content[3] = preg_replace_callback($reg, array($this, 'replaceBlock'), "{$content[3]}{$begin}/block{$end}");
-                return $content[1] . $content[3];
+                $content[3] = preg_replace_callback($reg1, array($this, 'replaceBlock'), $content[3] . $begin . '/block' . $end);
+                $content = $content[1] . $content[3];
             } else {
                 $name    = $content[2];
                 $content = $content[3];
                 $str = '';
                 if ($append && !$parse) {
-                    $str = '<block name="' . $name . '"></block>';
+                    $str = $begin . 'block name="' . $name . '"' . $end . $begin . '/block' . $end;
                 }
                 if (isset($this->block[$name])) {
                     $content = $this->block[$name];
                     unset($this->block[$name]);
                 }
-                return $content . $str;
+                $content .= $str;
             }
+        } else {
+            $content = '';
         }
+        // $content = str_replace(['\\' . $begin, '\\' . $end], [$begin, $end], $content);
+        return $content;
     }
 
     /**
@@ -435,7 +440,7 @@ class Think
     public function getIncludeTagLib(&$content)
     {
         //搜索是否有TagLib标签
-        $find = preg_match('/' . $this->config['taglib_begin'] . 'taglib\s(.+?)(\s*?)\/' . $this->config['taglib_end'] . '\W/is', $content, $matches);
+        $find = preg_match('@' . $this->config['taglib_begin'] . 'taglib\s(.+?)(\s*?)/' . $this->config['taglib_end'] . '\W@is', $content, $matches);
         if ($find) {
             //替换TagLib标签
             $content = str_replace($matches[0], '', $content);
@@ -486,12 +491,12 @@ class Think
                 // $this->tempVar = array($tagLib, $tag);
 
                 if (!$closeTag) {
-                    $patterns = '/' . $begin . $parseTag . $n1 . '\/(\s*?)' . $end . '/is';
+                    $patterns = '@' . $begin . $parseTag . $n1 . '/(\s*?)' . $end . '@is';
                     $content  = preg_replace_callback($patterns, function ($matches) use ($tLib, $tag, $that) {
                         return $that->parseXmlTag($tLib, $tag, $matches[1], $matches[2]);
                     }, $content);
                 } else {
-                    $patterns = '/' . $begin . $parseTag . $n1 . $end . '(.*?)' . $begin . '\/' . $parseTag . '(\s*?)' . $end . '/is';
+                    $patterns = '@' . $begin . $parseTag . $n1 . $end . '(.*?)' . $begin . '/' . $parseTag . '(\s*?)' . $end . '@is';
                     for ($i = 0; $i < $level; $i++) {
                         $content = preg_replace_callback($patterns, function ($matches) use ($tLib, $tag, $that) {
                             return $that->parseXmlTag($tLib, $tag, $matches[1], $matches[2]);
@@ -611,7 +616,7 @@ class Think
             } elseif (false !== strpos($var, '[')) {
                 //支持 {$var['key']} 方式输出数组
                 $name = "$" . $var;
-                preg_match('/(.+?)\[(.+?)\]/is', $var, $match);
+                preg_match('@(.+?)\[(.+?)\]@is', $var, $match);
                 $var = $match[1];
             } elseif (false !== strpos($var, ':') && false === strpos($var, '(') && false === strpos($var, '::') && false === strpos($var, '?')) {
                 //支持 {$var:property} 方式输出对象的属性
