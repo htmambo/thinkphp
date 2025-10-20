@@ -24,7 +24,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $callback
      * @return static
      */
-    public static function times($number, callable $callback = null);
+    public static function times($number, ?callable $callback = null);
 
     /**
      * Wrap the given value in a collection if applicable.
@@ -240,7 +240,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $callback
      * @return static
      */
-    public function filter(callable $callback = null);
+    public function filter(?callable $callback = null);
 
     /**
      * Apply the callback if the value is truthy.
@@ -388,7 +388,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  mixed  $default
      * @return mixed
      */
-    public function first(callable $callback = null, $default = null);
+    public function first(?callable $callback = null, $default = null);
 
     /**
      * Get the first item by the given key value pair.
@@ -503,7 +503,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  mixed  $default
      * @return mixed
      */
-    public function last(callable $callback = null, $default = null);
+    public function last(?callable $callback = null, $default = null);
 
     /**
      * Run a map over each of the items.
