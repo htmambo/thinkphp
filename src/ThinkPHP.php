@@ -37,6 +37,7 @@ const URL_COMPAT   = 3; // 兼容模式
 // 系统常量定义
 defined('APP_STATUS') or define('APP_STATUS', ''); // 应用状态 加载对应的配置文件
 defined('APP_DEBUG') or define('APP_DEBUG', false); // 是否调试模式
+defined('ONLY_SCRIPT') or define('ONLY_SCRIPT', false); // 仅CLI模式运行
 
 defined('STORAGE_TYPE') or define('STORAGE_TYPE', 'File'); // 存储类型 默认为File
 

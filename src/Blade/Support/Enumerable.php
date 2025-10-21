@@ -250,7 +250,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function when($value, callable $callback, callable $default = null);
+    public function when($value, callable $callback, ?callable $default = null);
 
     /**
      * Apply the callback if the collection is empty.
@@ -259,7 +259,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function whenEmpty(callable $callback, callable $default = null);
+    public function whenEmpty(callable $callback, ?callable $default = null);
 
     /**
      * Apply the callback if the collection is not empty.
@@ -268,7 +268,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function whenNotEmpty(callable $callback, callable $default = null);
+    public function whenNotEmpty(callable $callback, ?callable $default = null);
 
     /**
      * Apply the callback if the value is falsy.
@@ -278,7 +278,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function unless($value, callable $callback, callable $default = null);
+    public function unless($value, callable $callback, ?callable $default = null);
 
     /**
      * Apply the callback unless the collection is empty.
@@ -287,7 +287,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function unlessEmpty(callable $callback, callable $default = null);
+    public function unlessEmpty(callable $callback, ?callable $default = null);
 
     /**
      * Apply the callback unless the collection is not empty.
@@ -296,7 +296,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
      * @param  callable|null  $default
      * @return static|mixed
      */
-    public function unlessNotEmpty(callable $callback, callable $default = null);
+    public function unlessNotEmpty(callable $callback, ?callable $default = null);
 
     /**
      * Filter items by the given key value pair.

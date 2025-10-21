@@ -91,7 +91,7 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
      * @param Closure|null   $callback
      * @return void
      */
-    public function resolving($abstract, Closure $callback = null): void
+    public function resolving($abstract, ?Closure $callback = null): void
     {
         if ($abstract instanceof Closure) {
             $this->invokeCallback['*'][] = $abstract;

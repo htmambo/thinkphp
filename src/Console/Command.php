@@ -89,7 +89,7 @@ class Command
      * 设置控制台
      * @param Console $console
      */
-    public function setConsole(Console $console = null)
+    public function setConsole(?Console $console = null)
     {
         $this->console = $console;
     }
