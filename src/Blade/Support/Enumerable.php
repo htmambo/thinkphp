@@ -7,6 +7,13 @@ use JsonSerializable;
 use Think\Blade\Contracts\Support\Arrayable;
 use Think\Blade\Contracts\Support\Jsonable;
 
+/**
+ * @template TKey of array-key
+ * @template TValue
+ *
+ * @extends \Illuminate\Contracts\Support\Arrayable<TKey, TValue>
+ * @extends \IteratorAggregate<TKey, TValue>
+ */
 interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, JsonSerializable
 {
     /**

@@ -24,7 +24,7 @@ class Arr
      * Add an element to an array using "dot" notation if it doesn't exist.
      *
      * @param  array  $array
-     * @param  string  $key
+     * @param  string|int|float  $key
      * @param  mixed  $value
      * @return array
      */
@@ -121,10 +121,27 @@ class Arr
     }
 
     /**
+     * Convert a flatten "dot" notation array into an expanded array.
+     *
+     * @param  iterable  $array
+     * @return array
+     */
+    public static function undot($array)
+    {
+        $results = [];
+
+        foreach ($array as $key => $value) {
+            static::set($results, $key, $value);
+        }
+
+        return $results;
+    }
+
+    /**
      * Get all of the given array except for a specified array of keys.
      *
      * @param  array  $array
-     * @param  array|string  $keys
+     * @param  array|string|int|float  $keys
      * @return array
      */
     public static function except($array, $keys)
@@ -600,34 +617,75 @@ class Arr
      * Recursively sort an array by keys and values.
      *
      * @param  array  $array
+     * @param  int  $options
+     * @param  bool  $descending
      * @return array
      */
-    public static function sortRecursive($array)
+    public static function sortRecursive($array, $options = SORT_REGULAR, $descending = false)
     {
         foreach ($array as &$value) {
             if (is_array($value)) {
-                $value = static::sortRecursive($value);
+                $value = static::sortRecursive($value, $options, $descending);
             }
         }
 
         if (static::isAssoc($array)) {
-            ksort($array);
+            $descending
+                    ? krsort($array, $options)
+                    : ksort($array, $options);
         } else {
-            sort($array);
+            $descending
+                    ? rsort($array, $options)
+                    : sort($array, $options);
         }
 
         return $array;
     }
 
     /**
-     * Convert the array into a query string.
+     * Conditionally compile styles from an array into a style list.
+     *
+     * @param  array|string  $array
+     * @return string
+     */
+    public static function toCssStyles($array)
+    {
+        $styleList = static::wrap($array);
+
+        $styles = [];
+
+        foreach ($styleList as $class => $constraint) {
+            if (is_numeric($class)) {
+                $styles[] = Str::finish($constraint, ';');
+            } elseif ($constraint) {
+                $styles[] = Str::finish($class, ';');
+            }
+        }
+
+        return implode(' ', $styles);
+    }
+
+    /**
+     * Conditionally compile classes from an array into a CSS class list.
      *
      * @param  array  $array
      * @return string
      */
-    public static function query($array)
+    public static function toCssClasses($array)
     {
-        return http_build_query($array, null, '&', PHP_QUERY_RFC3986);
+        $classList = static::wrap($array);
+
+        $classes = [];
+
+        foreach ($classList as $class => $constraint) {
+            if (is_numeric($class)) {
+                $classes[] = $constraint;
+            } elseif ($constraint) {
+                $classes[] = $class;
+            }
+        }
+
+        return implode(' ', $classes);
     }
 
     /**
