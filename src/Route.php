@@ -1,4 +1,5 @@
 <?php
+
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK IT ]
 // +----------------------------------------------------------------------
@@ -142,24 +143,114 @@ class Route
      *
      * @return array|false
      */
+    /**
+     * 路由反向解析
+     *
+     * @param string      $path   控制器/方法
+     * @param array       $vars   url参数
+     * @param string      $depr   分隔符
+     * @param string|true $suffix url后缀
+     *
+     * @return array|false
+     */
     public static function reverse($path, &$vars, $depr = '/', $suffix = true)
     {
         static $_rules = null;
         if (is_null($_rules)) {
-            if ($rules = self::ruleCache()) {
-                foreach ($rules as $i => $rules2) {
-                    foreach ($rules2 as $rule => $route) {
-                        if (is_array($route) && is_string($route[0]) && '/' != substr($route[0], 0, 1)) {
-                            $key                     = strtolower($route[0]);
-                            $key                     = preg_replace('@\\[a-z]@U', '', $key);
-                            $_rules[$i][$key][$rule] = $route;
-                        }
+            $_rules = self::buildReverseRules(self::ruleCache());
+        }
+
+        $info = self::parseReverseUrl($path);
+
+        // 解析参数
+        self::parseReverseParams($vars, $info);
+
+        // 从路径中解析 模块、控制器、方法
+        $path = isset($info['path']) ? ltrim($info['path'], '/') : '';
+        $param = explode('/', $path);
+        $urls  = self::processMCA($param);
+
+        //检测路由映射表
+        $rMap = C('ROUTER_MAP');
+        $_url = implode('/', $urls);
+        if ($rMap && isset($rMap[$_url])) {
+            $_url = explode('/', $rMap[$_url]);
+            $urls = self::processMCA($_url);
+        }
+
+        $info['MODULE']     = $urls[0];
+        $info['CONTROLLER'] = $urls[1];
+        $info['ACTION']     = $urls[2];
+        $info['path']       = '';
+
+        if (!defined('BIND_MODULE') || BIND_MODULE != $info['MODULE']) {
+            $info['path'] = $info['MODULE'] . $depr;
+        }
+
+        $info['path'] .= $info['CONTROLLER'] . $depr . $info['ACTION'];
+        $path         = strtolower(implode('/', $urls));
+        unset($urls);
+
+        if ($param) {
+            for ($i = 0; $i < count($param); $i++) {
+                $vars[$param[$i]] = $param[++$i];
+            }
+        }
+        unset($param);
+
+        // 静态路由
+        if (isset($_rules[0][$path])) {
+            foreach ($_rules[0][$path] as $rule => $route) {
+                $args = array_pop($route);
+                if (count($vars) == count($args) && !empty($vars) && !array_diff($vars, $args)) {
+                    $info['path'] = str_replace('/', $depr, $rule);
+                    return $info;
+                }
+            }
+        }
+
+        // 动态路由
+        if (isset($_rules[1][$path])) {
+            return self::matchReverseDynamic($_rules[1][$path], $vars, $info, $depr, $suffix);
+        }
+
+        //没有合适的路由
+        return $info;
+    }
+
+    /**
+     * 构建反向路由规则
+     *
+     * @param array $rules
+     * @return array
+     */
+    private static function buildReverseRules(array $rules): array
+    {
+        $_rules = [];
+        if ($rules) {
+            foreach ($rules as $i => $rules2) {
+                foreach ($rules2 as $rule => $route) {
+                    if (is_array($route) && is_string($route[0]) && '/' != substr($route[0], 0, 1)) {
+                        $key                     = strtolower($route[0]);
+                        $key                     = preg_replace('@\\[a-z]@U', '', $key);
+                        $_rules[$i][$key][$rule] = $route;
                     }
                 }
             }
         }
+        return $_rules;
+    }
+
+    /**
+     * 解析反向路由URL
+     *
+     * @param string $path
+     * @return array
+     */
+    private static function parseReverseUrl(string $path): array
+    {
         $host = '';
-        if(strpos($path, '@') !== false) {
+        if (strpos($path, '@') !== false) {
             list($path, $host) = explode('@', $path, 2);
         }
         if ($host) {
@@ -203,147 +294,124 @@ class Route
                 $info = array_merge($info, $tmp);
             }
         }
+        return $info;
+    }
 
-        // 解析参数
+    /**
+     * 解析反向路由参数
+     *
+     * @param mixed $vars
+     * @param array $info
+     */
+    private static function parseReverseParams(&$vars, array $info)
+    {
         if (is_string($vars)) { // aaa=1&bbb=2 转换成数组
             parse_str($vars, $vars);
         } elseif (!is_array($vars)) {
-            $vars = array();
+            $vars = [];
         }
         if (isset($info['query']) && $info['query']) { // 解析地址里面参数 合并到vars
             parse_str($info['query'], $params);
             $vars = array_merge($params, $vars);
         }
-        // 从路径中解析 模块、控制器、方法
-        $path = isset($info['path'])?ltrim($info['path'], '/'):'';
-        $param = explode('/', $path);
-        $urls  = self::processMCA($param);
+    }
 
-        //检测路由映射表
-        $rMap = C('ROUTER_MAP');
-        $_url = implode('/', $urls);
-        if ($rMap && isset($rMap[$_url])) {
-            $_url = explode('/', $rMap[$_url]);
-            $urls = self::processMCA($_url);
-        }
-
-        $info['MODULE']     = $urls[0];
-        $info['CONTROLLER'] = $urls[1];
-        $info['ACTION']     = $urls[2];
-        $info['path']       = '';
-        if (defined('BIND_MODULE') && BIND_MODULE == $info['MODULE']) {
-        } else {
-            $info['path'] = $info['MODULE'] . $depr;
-        }
-        $info['path'] .= $info['CONTROLLER'] . $depr . $info['ACTION'];
-        $path         = strtolower(implode('/', $urls));
-        unset($urls);
-
-        if ($param) {
-            for ($i = 0; $i < count($param); $i++) {
-                $vars[$param[$i]] = $param[++$i];
+    /**
+     * 匹配反向动态路由
+     *
+     * @param array $rules
+     * @param array $vars
+     * @param array $info
+     * @param string $depr
+     * @param mixed $suffix
+     * @return array
+     */
+    private static function matchReverseDynamic(array $rules, array &$vars, array $info, string $depr, $suffix): array
+    {
+        foreach ($rules as $rule => $route) {
+            $args  = array_pop($route);
+            $array = [];
+            if (isset($route[2])) {
+                // 路由参数检查
+                if (!self::checkOption($route[2], $suffix)) {
+                    continue;
+                }
             }
-        }
-        unset($param);
-
-        // 静态路由
-        if (isset($_rules[0][$path])) {
-            foreach ($_rules[0][$path] as $rule => $route) {
-                $args = array_pop($route);
-                if (count($vars) == count($args) && !empty($vars) && !array_diff($vars, $args)) {
-                    $info['path'] = str_replace('/', $depr, $rule);
+            if ('/' != substr($rule, 0, 1)) {
+                // 规则路由
+                $flag = true;
+                foreach ($args as $key => $val) {
+                    if ($val[0] == self::ROUTER_ARG_NAME) {
+                        // 静态变量值，这个就当做是路由的关键标识了
+                        $array[$key] = $key;
+                        continue;
+                    }
+                    if (isset($vars[$key])) {
+                        // 是否有过滤条件
+                        if (!empty($val[2])) {
+                            if ($val[2] == 'int') {
+                                // 是否为数字
+                                if (!is_numeric($vars[$key]) || !preg_match('/^\d*$/', $vars[$key])) {
+                                    $flag = false;
+                                    break;
+                                }
+                            } else {
+                                // 排除的名称
+                                if (in_array($vars[$key], $val[2])) {
+                                    $flag = false;
+                                    break;
+                                }
+                            }
+                        }
+                        $array[$key] = $vars[$key];
+                    } elseif ($val[0] == self::ROUTER_ARG_VARIABLE) {
+                        // 如果是必选项
+                        $flag = false;
+                        break;
+                    }
+                }
+                // 匹配成功
+                if ($flag) {
+                    //TODO 暂时先这样处理一下
+                    if (isset($route[1]) && is_array($route[1]) && $route[1]) {
+                        foreach ($route[1] as $k => $v) {
+                            if (isset($vars[$k]) && $vars[$k] == $v) {
+                                unset($vars[$k]);
+                            }
+                        }
+                    }
+                    foreach (array_keys($array) as $key) {
+                        $array[$key] = urlencode($array[$key]);
+                        $info[$key]  = $array[$key];
+                        unset($vars[$key]);
+                    }
+                    $info['path'] = implode($depr, $array);
+                    return $info;
+                }
+            } else {
+                // 正则路由
+                $keys      = !empty($args) ? array_keys($args) : array_keys($vars);
+                $temp_vars = $vars;
+                $str       = preg_replace_callback('/\(.*?\)/', function ($match) use (&$temp_vars, &$keys) {
+                    $k      = array_shift($keys);
+                    $re_var = '';
+                    if (isset($temp_vars[$k])) {
+                        $re_var = $temp_vars[$k];
+                        unset($temp_vars[$k]);
+                    }
+                    return urlencode($re_var);
+                }, $rule);
+                $str       = substr($str, 1, -1);
+                $str       = rtrim(ltrim($str, '^'), '$');
+                $str       = str_replace('\\', '', $str);
+                if (preg_match($rule, $str, $matches)) {
+                    // 匹配成功
+                    $vars         = $temp_vars;
+                    $info['path'] = str_replace('/', $depr, $str);
                     return $info;
                 }
             }
         }
-
-        if (isset($_rules[1][$path])) {
-            foreach ($_rules[1][$path] as $rule => $route) {
-                $args  = array_pop($route);
-                $array = array();
-                if (isset($route[2])) {
-                    // 路由参数检查
-                    if (!self::checkOption($route[2], $suffix)) {
-                        continue;
-                    }
-                }
-                if ('/' != substr($rule, 0, 1)) {
-                    // 规则路由
-                    $flag = true;
-                    foreach ($args as $key => $val) {
-                        if ($val[0] == self::ROUTER_ARG_NAME) {
-                            // 静态变量值，这个就当做是路由的关键标识了
-                            $array[$key] = $key;
-                            continue;
-                        }
-                        if (isset($vars[$key])) {
-                            // 是否有过滤条件
-                            if (!empty($val[2])) {
-                                if ($val[2] == 'int') {
-                                    // 是否为数字
-                                    if (!is_numeric($vars[$key]) || !preg_match('/^\d*$/', $vars[$key])) {
-                                        $flag = false;
-                                        break;
-                                    }
-                                } else {
-                                    // 排除的名称
-                                    if (in_array($vars[$key], $val[2])) {
-                                        $flag = false;
-                                        break;
-                                    }
-                                }
-                            }
-                            $array[$key] = $vars[$key];
-                        } elseif ($val[0] == self::ROUTER_ARG_VARIABLE) {
-                            // 如果是必选项
-                            $flag = false;
-                            break;
-                        }
-                    }
-                    // 匹配成功
-                    if ($flag) {
-                        //TODO 暂时先这样处理一下
-                        if (isset($route[1]) && is_array($route[1]) && $route[1]) {
-                            foreach ($route[1] as $k => $v) {
-                                if (isset($vars[$k]) && $vars[$k] == $v) {
-                                    unset($vars[$k]);
-                                }
-                            }
-                        }
-                        foreach (array_keys($array) as $key) {
-                            $array[$key] = urlencode($array[$key]);
-                            $info[$key]  = $array[$key];
-                            unset($vars[$key]);
-                        }
-                        $info['path'] = implode($depr, $array);
-                        return $info;
-                    }
-                } else {
-                    // 正则路由
-                    $keys      = !empty($args) ? array_keys($args) : array_keys($vars);
-                    $temp_vars = $vars;
-                    $str       = preg_replace_callback('/\(.*?\)/', function ($match) use (&$temp_vars, &$keys) {
-                        $k      = array_shift($keys);
-                        $re_var = '';
-                        if (isset($temp_vars[$k])) {
-                            $re_var = $temp_vars[$k];
-                            unset($temp_vars[$k]);
-                        }
-                        return urlencode($re_var);
-                    }, $rule);
-                    $str       = substr($str, 1, -1);
-                    $str       = rtrim(ltrim($str, '^'), '$');
-                    $str       = str_replace('\\', '', $str);
-                    if (preg_match($rule, $str, $matches)) {
-                        // 匹配成功
-                        $vars         = $temp_vars;
-                        $info['path'] = str_replace('/', $depr, $str);
-                        return $info;
-                    }
-                }
-            }
-        }
-        //没有合适的路由
         return $info;
     }
 
@@ -376,23 +444,24 @@ class Route
      */
     public static function ruleCache($update = false)
     {
-        $result = array();
+        $result = [];
         $module = defined('MODULE_NAME') ? '_' . MODULE_NAME : '';
         $cacheKey = str_replace('[MODULE_NAME]', $module, self::ROUTER_CACHE_KEY);
+
         if (APP_DEBUG || $update || !$result = S($cacheKey)) {
             // 静态路由
             $result[0] = C('URL_MAP_RULES');
             if (!empty($result[0])) {
                 foreach ($result[0] as $rule => $route) {
                     if (!is_array($route)) {
-                        $route = array($route);
+                        $route = [$route];
                     }
                     if (strpos($route[0], '?')) {
                         // 分离参数
                         list($route[0], $args) = explode('?', $route[0], 2);
                         parse_str($args, $args);
                     } else {
-                        $args = array();
+                        $args = [];
                     }
                     if (!empty($route[1]) && is_string($route[1])) {
                         // 额外参数
@@ -402,32 +471,37 @@ class Route
                     $result[0][$rule] = $route;
                 }
             }
+
             // 动态路由
             $result[1] = C('URL_ROUTE_RULES');
-            if(!$result[1]) {
+            if (!$result[1]) {
                 $result[1] = [];
             }
+
             $dynamicRules = self::rule();
-            if($dynamicRules) {
-                foreach($dynamicRules as $rule => $route) {
+            if ($dynamicRules) {
+                foreach ($dynamicRules as $rule => $route) {
                     $result[1][$rule] = $route;
                 }
                 C('URL_ROUTE_RULES', $result[1]);
             }
+
             if (!empty($result[1])) {
                 // 为了安全，需要以key长度按倒序排序
-                uksort($result[1], function($a, $b) {
+                uksort($result[1], function ($a, $b) {
                     return strlen($b) - strlen($a);
                 });
+
                 foreach ($result[1] as $rule => $route) {
                     if (!is_array($route)) {
-                        $route = array($route);
+                        $route = [$route];
                     } elseif (is_numeric($rule)) {
                         // 支持 array('rule','adddress',...) 定义路由
                         $rule = array_shift($route);
                     }
+
                     if (!empty($route)) {
-                        $args = array();
+                        $args = [];
                         if (is_string($route[0])) {
                             if (0 === strpos($route[0], '/') || 0 === strpos($route[0], 'http')) {
                                 // 重定向
@@ -450,7 +524,7 @@ class Route
                                             if (0 === strpos($val, ':')) {
                                                 // 动态参数
                                                 $val        = substr($val, 1);
-                                                $args[$key] = strpos($val, '|') ? explode('|', $val, 2) : array($val);
+                                                $args[$key] = strpos($val, '|') ? explode('|', $val, 2) : [$val];
                                             } else {
                                                 $route[1][$key] = $val;
                                             }
@@ -459,6 +533,7 @@ class Route
                                 }
                             }
                         }
+
                         if ('/' != substr($rule, 0, 1)) {
                             // 规则路由
                             foreach (explode('/', rtrim($rule, '$')) as $item) {
@@ -491,7 +566,7 @@ class Route
                                         $item = substr($item, 1);
                                     }
                                 }
-                                $args[$item] = array($type, $fun, $filter);
+                                $args[$item] = [$type, $fun, $filter];
                             }
                         }
                         $route[]          = $args;
@@ -552,7 +627,7 @@ class Route
      */
     private static function checkUrlMatch(&$rule, &$args, &$regx)
     {
-        $params = array();
+        $params = [];
         if ('/' == substr($rule, 0, 1)) {
             // 正则路由
             if (preg_match($rule, $regx, $matches)) {
@@ -626,11 +701,11 @@ class Route
      *
      * @return boolean
      */
-    private static function invoke($closure, $var = array())
+    private static function invoke($closure, $var = [])
     {
         $reflect = new \ReflectionFunction($closure);
         $params  = $reflect->getParameters();
-        $args    = array();
+        $args    = [];
         foreach ($params as $i => $param) {
             $name = $param->getName();
             if (isset($var[$name])) {
@@ -658,10 +733,45 @@ class Route
     public static function buildUrl($path, $vars, $suffix = true, $domain = false)
     {
         $varPath = C('VAR_PATHINFO');
-        $depr    = C('URL_PATHINFO_DEPR');
         $urlCase = C('URL_CASE_INSENSITIVE');
         $urlMode = C('URL_MODEL');
-        $info    = self::reverse($path, $vars, $depr, $suffix);
+        $depr    = C('URL_PATHINFO_DEPR');
+
+        $info = self::reverse($path, $vars, $depr, $suffix);
+
+        self::processHost($info, $domain, $urlMode);
+
+        $url = self::getBaseUrl($info, $urlMode, $varPath);
+
+        if (URL_COMMON == $urlMode) {
+            $url .= self::buildCommonPath($info);
+        } else {
+            $url .= $info['path'];
+            $url = self::appendSuffix($url, $suffix, $urlMode);
+        }
+
+        if ($urlCase) {
+            $url = strtolower($url);
+        }
+
+        $url = self::appendQuery($url, $vars);
+
+        if (isset($info['fragment'])) {
+            $url .= '#' . $info['fragment'];
+        }
+
+        return (isset($info['host']) ? $info['host'] : '') . $url;
+    }
+
+    /**
+     * 处理域名
+     *
+     * @param array $info
+     * @param bool $domain
+     * @param int $urlMode
+     */
+    private static function processHost(&$info, $domain, $urlMode)
+    {
         if (isset($info['host']) && $info['host']) {
             $info['scheme'] = (isset($info['scheme']) && $info['scheme']) ? $info['scheme'] : 'http';
             $info['port']   = (isset($info['port']) && $info['port'] && $info['port'] != '80' && $info['port'] != '443') ? ':' . $info['port'] : '';
@@ -681,11 +791,24 @@ class Route
             }
             $info['host'] = $info['scheme'] . '://' . $info['host'] . $info['port'] . '/' . trim($tmp, '/') . '/';
         }
+    }
+
+    /**
+     * 获取基础URL
+     *
+     * @param array $info
+     * @param int $urlMode
+     * @param string $varPath
+     * @return string
+     */
+    private static function getBaseUrl($info, $urlMode, $varPath)
+    {
         if (isset($info['host']) && $info['host']) {
             $url = basename(_PHP_FILE_);
         } else {
             $url = _PHP_FILE_;
         }
+
         if (URL_PATHINFO == $urlMode) {
             $url .= '/';
         } elseif (URL_REWRITE == $urlMode) {
@@ -702,65 +825,88 @@ class Route
         } else {
             $url .= '?' . $varPath . '=';
         }
+        return $url;
+    }
 
-        if (URL_COMMON == $urlMode) {
-            // 普通模式URL转换
-            if ($info['path'] && $info['path'] == $info['ACTION']) {
-                $info['path'] = '';
-            }
-            if ($info['path']) {
-                $url .= $info['path'];
-            } else {
-                if (defined('BIND_MODULE') && BIND_MODULE == $info['MODULE']) {
-                } else {
-                    $url .= $info['MODULE'] . '/';
-                }
-                $url .= $info['CONTROLLER'] . '/' . $info['ACTION'];
-            }
+    /**
+     * 构建普通模式路径
+     *
+     * @param array $info
+     * @return string
+     */
+    private static function buildCommonPath($info)
+    {
+        $path = '';
+        if ($info['path'] && $info['path'] == $info['ACTION']) {
+            $info['path'] = '';
+        }
+        if ($info['path']) {
+            $path .= $info['path'];
         } else {
-            $url .= $info['path'];
-            if ($suffix && ($urlMode == URL_PATHINFO || $urlMode == URL_REWRITE)) {
-                $suffix = true === $suffix ? C('URL_HTML_SUFFIX') : $suffix;
-                if ($pos = strpos($suffix, '|')) {
-                    $suffix = substr($suffix, 0, $pos);
-                }
-                if ($suffix && '/' != substr($url, -1)) {
-                    $url .= '.' . ltrim($suffix, '.');
-                }
+            if (defined('BIND_MODULE') && BIND_MODULE == $info['MODULE']) {
+            } else {
+                $path .= $info['MODULE'] . '/';
+            }
+            $path .= $info['CONTROLLER'] . '/' . $info['ACTION'];
+        }
+        return $path;
+    }
+
+    /**
+     * 添加后缀
+     *
+     * @param string $url
+     * @param mixed $suffix
+     * @param int $urlMode
+     * @return string
+     */
+    private static function appendSuffix($url, $suffix, $urlMode)
+    {
+        if ($suffix && ($urlMode == URL_PATHINFO || $urlMode == URL_REWRITE)) {
+            $suffix = true === $suffix ? C('URL_HTML_SUFFIX') : $suffix;
+            if ($pos = strpos($suffix, '|')) {
+                $suffix = substr($suffix, 0, $pos);
+            }
+            if ($suffix && '/' != substr($url, -1)) {
+                $url .= '.' . ltrim($suffix, '.');
             }
         }
+        return $url;
+    }
 
-        if ($urlCase) {
-            $url = strtolower($url);
-        }
-
+    /**
+     * 添加查询参数
+     *
+     * @param string $url
+     * @param mixed $vars
+     * @return string
+     */
+    private static function appendQuery($url, $vars)
+    {
         if (!empty($vars)) {
             $vars = http_build_query($vars);
             $url  .= false === strpos($url, '?') ? '?' : '&';
             $url  .= $vars;
         }
-        if (isset($info['fragment'])) {
-            $url .= '#' . $info['fragment'];
-        }
-        return (isset($info['host']) ? $info['host'] : '') . $url;
+        return $url;
     }
 
     private static function processMCA(&$param)
     {
         if (count($param) == 1) {
-            $urls         = array(
+            $urls         = [
                 MODULE_NAME,
                 CONTROLLER_NAME,
                 $param[0] ?: ACTION_NAME
-            );
+            ];
             $param        = false;
             $info['path'] = $urls[1] . '/' . $urls[2];
         } elseif (count($param) == 2) {
-            $urls         = array(
+            $urls         = [
                 MODULE_NAME,
                 $param[0] ?: CONTROLLER_NAME,
                 $param[1] ?: ACTION_NAME
-            );
+            ];
             $param        = false;
             $info['path'] = $urls[1] . '/' . $urls[2];
         } else {
@@ -791,7 +937,7 @@ class Route
     public static function rule($rule = '', $route = [])
     {
         static $dynamicRules = [];
-        if($rule) {
+        if ($rule) {
             $dynamicRules[$rule] = $route;
         }
         return $dynamicRules;
