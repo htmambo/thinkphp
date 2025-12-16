@@ -134,8 +134,8 @@ class File extends Storage
      */
     public function load($_filename, $vars = null)
     {
-        if (!is_null($vars)) {
-            extract($vars, EXTR_OVERWRITE);
+        if (!is_null($vars) && is_array($vars)) {
+            extract($vars, EXTR_SKIP);
         }
         include $_filename;
     }

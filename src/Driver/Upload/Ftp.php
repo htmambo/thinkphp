@@ -155,7 +155,11 @@ class Ftp
      * @return boolean true-登录成功，false-登录失败
      */
     private function login(){
-        extract($this->config);
+        $host = $this->config['host'] ?? '';
+        $port = $this->config['port'] ?? 21;
+        $timeout = $this->config['timeout'] ?? 90;
+        $username = $this->config['username'] ?? '';
+        $password = $this->config['password'] ?? '';
         $this->link = ftp_connect($host, $port, $timeout);
         if ($this->link) {
             if (ftp_login($this->link, $username, $password)) {

@@ -184,7 +184,12 @@ class Handle
         }
         send_http_status($statusCode);
 
-        extract($data);
+        // 安全修复: 使用显式变量赋值替代extract()
+        $name = $data['name'] ?? '';
+        $message = $data['message'] ?? '';
+        $file = $data['file'] ?? '';
+        $line = $data['line'] ?? '';
+        $trace = $data['trace'] ?? '';
         $exceptionFile = C('TMPL_EXCEPTION_FILE', null, CORE_PATH . 'Helper/Tpl/think_exception.tpl');
         if(file_exists($exceptionFile)) {
             include $exceptionFile;

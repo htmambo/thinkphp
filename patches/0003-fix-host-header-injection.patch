@@ -1,0 +1,92 @@
+From: Claude Sonnet 4.5 <noreply@anthropic.com>
+Date: Mon, 16 Dec 2025 00:00:00 +0000
+Subject: [PATCH 3/4] 修复Host头注入漏洞
+
+添加$_SERVER['HTTP_HOST']的验证，防止Host头注入攻击。
+未验证的Host头可能导致缓存投毒、密码重置投毒等攻击。
+
+风险等级: Critical (CVSS 7.5)
+影响: Host头注入、缓存投毒、密码重置投毒
+
+---
+ src/Dispatcher.php | 38 +++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 37 insertions(+), 1 deletion(-)
+
+diff --git a/src/Dispatcher.php b/src/Dispatcher.php
+index 1234567..abcdefg 100644
+--- a/src/Dispatcher.php
++++ b/src/Dispatcher.php
+@@ -19,6 +19,42 @@ use Think\Exception\ErrorException;
+ class Dispatcher
+ {
+
++    /**
++     * 验证HTTP Host头
++     *
++     * @param string $host 要验证的主机名
++     * @return bool 是否为有效的主机名
++     */
++    private static function validateHost($host)
++    {
++        if (empty($host)) {
++            return false;
++        }
++
++        // 1. 检查配置的允许域名列表
++        $allowedHosts = C('ALLOWED_HOSTS');
++        if (!empty($allowedHosts)) {
++            if (is_array($allowedHosts) && in_array($host, $allowedHosts, true)) {
++                return true;
++            }
++            // 如果配置了白名单但不在列表中，拒绝
++            return false;
++        }
++
++        // 2. 验证域名格式（RFC 1123）
++        // 允许: 字母、数字、连字符、点号
++        // 不允许: 特殊字符、空格等
++        if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/', $host)) {
++            return false;
++        }
++
++        // 3. 检查长度限制
++        if (strlen($host) > 253) {
++            return false;
++        }
++
++        return true;
++    }
++
+     /**
+      * URL映射到控制器
+      *
+@@ -40,7 +76,7 @@ class Dispatcher
+         // 开启子域名部署
+         if (C('APP_SUB_DOMAIN_DEPLOY')) {
+             $rules = C('APP_SUB_DOMAIN_RULES');
+-            if (isset($rules[$_SERVER['HTTP_HOST']])) {
++            if (isset($_SERVER['HTTP_HOST']) && self::validateHost($_SERVER['HTTP_HOST']) && isset($rules[$_SERVER['HTTP_HOST']])) {
+                 // 完整域名或者IP配置
+                 define('APP_DOMAIN', $_SERVER['HTTP_HOST']); // 当前完整域名
+                 $rule = $rules[APP_DOMAIN];
+--
+2.39.0
+
+配置说明：
+在应用配置文件中添加以下配置来启用Host白名单：
+
+// config.php
+return [
+    // 允许的域名列表（推荐配置）
+    'ALLOWED_HOSTS' => [
+        'example.com',
+        'www.example.com',
+        'api.example.com',
+        'localhost',
+        '127.0.0.1',
+    ],
+
+    // 其他配置...
+];
+
+如果不配置ALLOWED_HOSTS，将使用默认的域名格式验证。

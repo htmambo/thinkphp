@@ -274,10 +274,14 @@ class Auth
                 // 根据condition进行验证
                 $user = $this->getUserInfo($uid);
                 //获取用户信息,一维数组
-                $condition = '';
-                $command = preg_replace('/\{(\w*?)\}/', '$user[\'\1\']', $rule['condition']);
-                //dump($command);//debug
-                @eval('$condition=(' . $command . ');');
+                // 安全修复: 移除危险的eval()调用
+                // 简化条件检查，仅支持基本的相等比较
+                $condition = false;
+                if (preg_match('/\{(\w+)\}\s*==\s*["\']?(\w+)["\']?/', $rule['condition'], $matches)) {
+                    $field = $matches[1];
+                    $value = $matches[2];
+                    $condition = isset($user[$field]) && $user[$field] == $value;
+                }
                 if ($condition) {
                     $authList[] = strtolower($rule['name']);
                 }
