@@ -1,0 +1,13 @@
+#!/usr/bin/env php
+<?php
+
+if (version_compare(PHP_VERSION, '7.4.0', '<')) {
+    fwrite(STDERR, "require PHP >= 7.4.0 !\n");
+    exit(1);
+}
+
+define('APP_DEBUG', true);
+define('APP_PATH', __DIR__ . '/Application/');
+defined('ROOT_PATH') || define('ROOT_PATH', getcwd() . DIRECTORY_SEPARATOR);
+
+require dirname(__DIR__) . '/vendor/autoload.php';
