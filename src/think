@@ -1,19 +1,25 @@
 #!/usr/bin/env php
 <?php
-/**
- * 迁移TP5的命令行模式
- */
-define('ROOT_PATH', __DIR__ . '/');
 
-// 检测PHP环境
-if (version_compare(PHP_VERSION, '7.4.0', '<')) die('require PHP >= 7.4.0 !');
-/**
- * 系统调试设置
- * 项目正式部署后请设置为false
- */
-defined('APP_DEBUG') || define('APP_DEBUG', True);
+if (version_compare(PHP_VERSION, '7.4.0', '<')) {
+    fwrite(STDERR, "require PHP >= 7.4.0 !\n");
+    exit(1);
+}
 
-/**
- * 引入核心入口
- */
-require __DIR__ . '/vendor/autoload.php';
+defined('APP_DEBUG') || define('APP_DEBUG', true);
+defined('ROOT_PATH') || define('ROOT_PATH', getcwd() . DIRECTORY_SEPARATOR);
+
+$autoloadFiles = [
+    __DIR__ . '/../vendor/autoload.php',
+    dirname(__DIR__, 3) . '/autoload.php',
+];
+
+foreach ($autoloadFiles as $autoloadFile) {
+    if (is_file($autoloadFile)) {
+        require $autoloadFile;
+        exit(0);
+    }
+}
+
+fwrite(STDERR, "Composer autoload.php not found.\n");
+exit(1);
