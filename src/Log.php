@@ -4,52 +4,86 @@ namespace Think;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\BrowserConsoleHandler;
+use Monolog\Handler\RotatingFileHandler;
+use Monolog\Formatter\LineFormatter;
 
 /**
- * 日志处理类
+ * 日志处理类 - 基于Monolog的日志管理
  */
 class Log
 {
-    // 日志级别 从上到下，由低到高
-    const EMERG  = 'EMERGENCY'; // 严重错误: 导致系统崩溃无法使用
-    const ALERT  = 'ALERT';     // 警戒性错误: 必须被立即修改的错误
-    const CRIT   = 'CRITICAL';  // 临界值错误: 超过临界值的错误
-    const ERR    = 'ERROR';     // 一般错误: 一般性错误
-    const WARN   = 'WARNING';   // 警告性错误: 需要发出警告的错误
-    const NOTICE = 'NOTICE';    // 通知: 程序可以运行但是还不够完美的错误
-    const INFO   = 'INFO';      // 信息: 程序输出信息
-    const DEBUG  = 'DEBUG';     // 调试: 调试信息
-    const SQL    = 'SQL';       // SQL：SQL语句 注意只在调试模式开启时有效
+    const EMERG  = 'EMERGENCY';
+    const ALERT  = 'ALERT';
+    const CRIT   = 'CRITICAL';
+    const ERR    = 'ERROR';
+    const WARN   = 'WARNING';
+    const NOTICE = 'NOTICE';
+    const INFO   = 'INFO';
+    const DEBUG  = 'DEBUG';
+    const SQL    = 'SQL';
 
     /**
      * @var Logger
-     * Monolog 日志记录器实例
      */
     public static $logger = null;
 
-    // 初始化
-    public static function init($config = array())
+    /**
+     * @var array
+     */
+    protected static $config = [];
+
+    /**
+     * 初始化日志记录器
+     *
+     * @param array $config 配置参数
+     * @return void
+     */
+    public static function init($config = [])
     {
-        if (self::$logger === null) {
-            self::$logger = new Logger('ThinkPHP');
+        if (self::$logger !== null) {
+            return;
+        }
 
-            $logPath = isset($config['log_path']) ? $config['log_path'] : C('LOG_PATH');
-            $logFile = $logPath . date('y_m_d') . '.log';
+        // 合并配置
+        self::$config = array_merge([
+            'log_path' => C('LOG_PATH'),
+            'log_level' => C('LOG_LEVEL', null, 'EMERG,ALERT,CRIT,ERR'),
+            'log_file_size' => C('LOG_FILE_SIZE', null, 2097152),
+            'log_max_files' => C('LOG_MAX_FILES', null, 10),
+            'channel_name' => 'ThinkPHP',
+        ], $config);
 
-            // 确保日志目录存在
-            if (!is_dir($logPath)) {
-                mkdir($logPath, 0755, true);
-            }
-            self::$logger->pushHandler(new StreamHandler($logFile));
-            self::$logger->pushHandler(new BrowserConsoleHandler());
+        self::$logger = new Logger(self::$config['channel_name']);
+
+        $logPath = self::$config['log_path'];
+
+        // 确保日志目录存在
+        if (!is_dir($logPath)) {
+            mkdir($logPath, 0755, true);
+        }
+
+        // 添加文件处理器 - 使用RotatingFileHandler支持日志轮转
+        $filename = $logPath . 'application';
+        $maxFiles = (int)self::$config['log_max_files'];
+        $handler = new RotatingFileHandler($filename . '.log', $maxFiles, Logger::DEBUG);
+        
+        $formatter = new LineFormatter(
+            "[%datetime%] %channel%.%level_name%: %message% %context% %extra%\n",
+            'Y-m-d H:i:s'
+        );
+        $handler->setFormatter($formatter);
+        self::$logger->pushHandler($handler);
+
+        // 在非CLI环境下添加浏览器控制台处理器
+        if (!IS_CLI) {
+            $browserHandler = new BrowserConsoleHandler(Logger::DEBUG);
+            self::$logger->pushHandler($browserHandler);
         }
     }
 
     /**
-     * 记录日志 并且会过滤未经设置的级别
+     * 记录日志 并根据配置的级别过滤
      *
-     * @static
-     * @access public
      * @param string $message 日志信息
      * @param string $level 日志级别
      * @param boolean $record 是否强制记录
@@ -65,13 +99,11 @@ class Log
     /**
      * 日志直接写入
      *
-     * @static
-     * @access public
      * @param string $message 日志信息
      * @param string $level 日志级别
-     * @param string $type 日志记录方式
-     * @param string $destination 写入目标
-     * @param boolean $directSave 是否直接保存
+     * @param string $type 日志记录方式(保留用于兼容性)
+     * @param string $destination 写入目标(保留用于兼容性)
+     * @param boolean $directSave 是否直接保存(保留用于兼容性)
      * @return void
      */
     public static function write($message, $level = self::ERR, $type = '', $destination = '', $directSave = false)
@@ -83,11 +115,7 @@ class Log
         $level = strtoupper($level);
         $monologLevel = self::getMonologLevel($level);
         
-        if (!$directSave) {
-            self::$logger->log($monologLevel, $message);
-        } else {
-            self::$logger->log($monologLevel, $message);
-        }
+        self::$logger->log($monologLevel, $message);
     }
 
     /**
@@ -99,18 +127,32 @@ class Log
     protected static function getMonologLevel($level)
     {
         $levels = Logger::getLevels();
-
         return $levels[$level] ?? Logger::INFO;
     }
 
     /**
-     * 魔术方法 有不存在的静态方法时调用
+     * 获取日志记录器实例
+     *
+     * @return Logger
+     */
+    public static function getLogger()
+    {
+        if (self::$logger === null) {
+            self::init();
+        }
+        return self::$logger;
+    }
+
+    /**
+     * 魔术方法 支持调用日志级别作为方法
      *
      * @param string $name
      * @param array $arguments
      */
     public static function __callStatic($name, $arguments)
     {
-        self::write($arguments[0], $name);
+        if (!empty($arguments)) {
+            self::write($arguments[0], $name);
+        }
     }
 }

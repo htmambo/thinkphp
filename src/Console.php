@@ -113,6 +113,10 @@ class Console
             if (!isset($config['user'])) {
                 $config['user'] = null;
             }
+            
+            // 初始化日志记录器
+            Log::init();
+            
             // 加载默认语言包
             $langs = [C('LANG_SET'), C('DEFAULT_LANG')];
             $langs = array_change_key_case($langs, CASE_LOWER);

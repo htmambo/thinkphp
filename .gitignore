@@ -3,3 +3,5 @@
 @eaDir
 .DS_Store
 .env
+/vendor/
+composer.lock
