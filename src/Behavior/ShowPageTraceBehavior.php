@@ -81,7 +81,7 @@ class ShowPageTraceBehavior extends \Think\Behavior
         }
         if ($save = C('PAGE_TRACE_SAVE')) {
             // 保存页面Trace日志
-            if (is_array($save)) { // 选择选项卡保存
+            if (is_array($save)) {
                 $tabs  = C('TRACE_PAGE_TABS', null, $this->tracePageTabs);
                 $array = array();
                 foreach ($save as $tab) {
@@ -102,7 +102,7 @@ class ShowPageTraceBehavior extends \Think\Behavior
                     $content .= "\r\n";
                 }
             }
-            error_log(str_replace('<br/>', "\r\n", $content), 3, C('LOG_PATH') . date('y_m_d') . '_trace.log');
+            \Think\Log::write(str_replace('<br/>', "\r\n", $content), \Think\Log::INFO);
         }
         unset($files, $info, $base);
         // 调用Trace页面模板

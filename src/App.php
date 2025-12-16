@@ -249,6 +249,8 @@ class App
         load_ext_file(COMMON_PATH);
         // 应用初始化标签
         Hook::listen('app_init');
+        // 初始化日志记录器
+        Log::init();
         App::init();
         // 应用开始标签
         Hook::listen('app_begin');
