@@ -20,11 +20,22 @@ trait CompilesLoops
     {
         $empty = '$__empty_' . ++$this->forElseCounter;
 
-        preg_match('/\( *(.*) +as *(.*)\)$/is', $expression, $matches);
+        // 安全修复：优化正则表达式，防止 ReDoS 攻击
+        // 使用非贪婪匹配 + 字符类限制，避免灾难性回溯
+        if (!preg_match('/^\(([^)]+?)\s+as\s+([^)]+?)\)$/is', $expression, $matches)) {
+            // 如果正则匹配失败，提供更安全的默认处理
+            error_log("Security Warning: Invalid forelse expression: {$expression}");
+            return "<?php foreach(array() as \$__empty): ?>";
+        }
 
         $iteratee = trim($matches[1]);
-
         $iteration = trim($matches[2]);
+
+        // 额外的安全检查：限制表达式长度
+        if (strlen($iteratee) > 1000 || strlen($iteration) > 1000) {
+            error_log("Security Warning: Forelse expression too long, possible ReDoS attack");
+            return "<?php foreach(array() as \$__empty): ?>";
+        }
 
         $initLoop = "\$__currentLoopData = {$iteratee}; \$__env->addLoop(\$__currentLoopData);";
 
@@ -89,9 +100,19 @@ trait CompilesLoops
      */
     protected function compileForeach($expression)
     {
-        preg_match('/\( *(.*) +as *(.*)\)$/is', $expression, $matches);
+        // 安全修复：优化正则表达式，防止 ReDoS 攻击
+        if (!preg_match('/^\(([^)]+?)\s+as\s+([^)]+?)\)$/is', $expression, $matches)) {
+            error_log("Security Warning: Invalid foreach expression: {$expression}");
+            return '';
+        }
 
         $iteratee = trim($matches[1]);
+
+        // 额外的安全检查：限制表达式长度
+        if (strlen($iteratee) > 1000 || strlen($matches[2]) > 1000) {
+            error_log("Security Warning: Foreach expression too long, possible ReDoS attack");
+            return '';
+        }
 
         $iteration = trim($matches[2]);
 

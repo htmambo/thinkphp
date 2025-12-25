@@ -52,6 +52,12 @@ class Db extends Cache
      */
     public function get($name)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in get: {$name}");
+            return false;
+        }
+
         $name = $this->options['prefix'] . addslashes($name);
         N('cache_read', 1);
         $result = $this->handler->query('SELECT `data`,`datacrc` FROM `' . $this->options['table'] . '` WHERE `cachekey`=\'' . $name . '\' AND (`expire` =0 OR `expire`>' . time() . ') LIMIT 0,1');
@@ -85,6 +91,12 @@ class Db extends Cache
      */
     public function set($name, $value, $expire = null)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in set: {$name}");
+            return false;
+        }
+
         $data = serialize($value);
         $name = $this->options['prefix'] . addslashes($name);
         N('cache_write', 1);
@@ -105,9 +117,15 @@ class Db extends Cache
         $result = $this->handler->query('select `cachekey` from `' . $this->options['table'] . '` where `cachekey`=\'' . $name . '\' limit 0,1');
         if (!empty($result)) {
             //更新记录
+            // 安全修复：转义数据字段
+            $data = addslashes($data);
+            $crc = addslashes($crc);
             $result = $this->handler->execute('UPDATE ' . $this->options['table'] . ' SET data=\'' . $data . '\' ,datacrc=\'' . $crc . '\',expire=' . $expire . ' WHERE `cachekey`=\'' . $name . '\'');
         } else {
             //新增记录
+            // 安全修复：转义数据字段
+            $data = addslashes($data);
+            $crc = addslashes($crc);
             $result = $this->handler->execute('INSERT INTO ' . $this->options['table'] . ' (`cachekey`,`data`,`datacrc`,`expire`) VALUES (\'' . $name . '\',\'' . $data . '\',\'' . $crc . '\',' . $expire . ')');
         }
         if ($result) {
@@ -129,6 +147,12 @@ class Db extends Cache
      */
     public function rm($name)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in rm: {$name}");
+            return false;
+        }
+
         $name = $this->options['prefix'] . addslashes($name);
         return $this->handler->execute('DELETE FROM `' . $this->options['table'] . '` WHERE `cachekey`=\'' . $name . '\'');
     }

@@ -288,7 +288,39 @@ class BladeCompiler extends Compiler implements CompilerInterface
 
         return tap($view->render(), function () use ($view, $deleteCachedView) {
             if ($deleteCachedView) {
-                unlink($view->getPath());
+                $path = $view->getPath();
+
+                // 安全修复：验证文件路径
+                $cachePath = realpath(C('CACHE_PATH'));
+                $realPath = realpath($path);
+
+                // 1. 验证路径存在
+                if (!$realPath) {
+                    error_log("Invalid cache file path: {$path}");
+                    return;
+                }
+
+                // 2. 验证在缓存目录内
+                if ($cachePath && strpos($realPath, $cachePath) !== 0) {
+                    error_log("Security Warning: Attempted to delete file outside cache directory: {$realPath}");
+                    return;
+                }
+
+                // 3. 验证文件扩展名
+                if (!str_ends_with($realPath, '.php')) {
+                    error_log("Security Warning: Invalid cache file extension: {$realPath}");
+                    return;
+                }
+
+                // 4. 验证文件名格式（SHA1 哈希）
+                $filename = basename($realPath, '.php');
+                if (!preg_match('/^[a-f0-9]{40}$/', $filename)) {
+                    error_log("Security Warning: Invalid cache file name format: {$filename}");
+                    return;
+                }
+
+                // 5. 安全删除
+                @unlink($path);
             }
         });
     }

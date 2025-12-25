@@ -99,7 +99,9 @@ class File extends Storage
     {
         $dir = dirname($filename);
         if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+            // 安全修复：使用更严格的权限 0755 而非 0777
+            // 0755 = 所有者:rwx, 组:r-x, 其他人:r-x
+            mkdir($dir, 0755, true);
         }
         if (false === file_put_contents($filename, $content)) {
             E(L('_STORAGE_WRITE_ERROR_') . ':' . $filename);
@@ -134,10 +136,50 @@ class File extends Storage
      */
     public function load($_filename, $vars = null)
     {
+        // 安全修复：验证文件路径，防止路径遍历和任意文件包含
+        $realPath = realpath($_filename);
+
+        // 1. 验证文件是否存在
+        if ($realPath === false) {
+            error_log("Security Warning: File not found or access denied: {$_filename}");
+            return;
+        }
+
+        // 2. 获取允许的基础路径
+        $allowedPaths = [
+            realpath(APP_PATH) ?: APP_PATH,
+            realpath(ROOT_PATH) ?: ROOT_PATH,
+            realpath(C('CACHE_PATH')) ?: C('CACHE_PATH'),
+            realpath(C('TEMP_PATH')) ?: C('TEMP_PATH'),
+        ];
+
+        // 3. 验证文件在允许的路径内
+        $isAllowed = false;
+        foreach ($allowedPaths as $allowedPath) {
+            if ($allowedPath && strpos($realPath, $allowedPath) === 0) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (!$isAllowed) {
+            error_log("Security Warning: Attempted to load file outside allowed directories: {$_filename} (resolved: {$realPath})");
+            return;
+        }
+
+        // 4. 验证文件扩展名（可选，根据需要启用）
+        // $allowedExtensions = ['.php', '.html', '.htm'];
+        // $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+        // if (!in_array('.' . $extension, $allowedExtensions)) {
+        //     error_log("Security Warning: Disallowed file extension: {$extension}");
+        //     return;
+        // }
+
         if (!is_null($vars) && is_array($vars)) {
             extract($vars, EXTR_SKIP);
         }
-        include $_filename;
+
+        include $realPath;
     }
 
     /**

@@ -52,6 +52,12 @@ class Sqlite extends Cache
      */
     public function get($name)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in get: {$name}");
+            return false;
+        }
+
         N('cache_read', 1);
         $name   = $this->options['prefix'] . sqlite_escape_string($name);
         $sql    = 'SELECT value FROM ' . $this->options['table'] . ' WHERE var=\'' . $name . '\' AND (expire=0 OR expire >' . time() . ') LIMIT 1';
@@ -77,6 +83,12 @@ class Sqlite extends Cache
      */
     public function set($name, $value, $expire = null)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in set: {$name}");
+            return false;
+        }
+
         N('cache_write', 1);
         $name  = $this->options['prefix'] . sqlite_escape_string($name);
         $value = sqlite_escape_string(serialize($value));
@@ -87,6 +99,11 @@ class Sqlite extends Cache
         if (C('DATA_CACHE_COMPRESS') && function_exists('gzcompress')) {
             //数据压缩
             $value = gzcompress($value, 3);
+        }
+        // 安全修复：对整数类型也进行验证
+        if (!is_numeric($expire)) {
+            error_log("Security Warning: Invalid expire value: {$expire}");
+            return false;
         }
         $sql = 'REPLACE INTO ' . $this->options['table'] . ' (var, value,expire) VALUES (\'' . $name . '\', \'' . $value . '\', \'' . $expire . '\')';
         if (sqlite_query($this->handler, $sql)) {
@@ -107,6 +124,12 @@ class Sqlite extends Cache
      */
     public function rm($name)
     {
+        // 安全修复：验证缓存键格式
+        if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+            error_log("Security Warning: Invalid cache key format in rm: {$name}");
+            return false;
+        }
+
         $name = $this->options['prefix'] . sqlite_escape_string($name);
         $sql  = 'DELETE FROM ' . $this->options['table'] . ' WHERE var=\'' . $name . '\'';
         sqlite_query($this->handler, $sql);

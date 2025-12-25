@@ -135,6 +135,12 @@ class Db
     public function read($sessID)
     {
         $hander = is_array($this->hander) ? $this->hander[1] : $this->hander;
+        // 安全修复：验证 session ID 格式并转义
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format: {$sessID}");
+            return "";
+        }
+        $sessID = mysql_real_escape_string($sessID, $hander);
         $res    = mysql_query('SELECT session_data AS data FROM ' . $this->sessionTable . " WHERE session_id = '$sessID'   AND session_expire >" . time(), $hander);
         if ($res) {
             $row = mysql_fetch_assoc($res);
@@ -153,7 +159,13 @@ class Db
     {
         $hander   = is_array($this->hander) ? $this->hander[0] : $this->hander;
         $expire   = time() + $this->lifeTime;
-        $sessData = addslashes($sessData);
+        // 安全修复：验证 session ID 格式
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format in write: {$sessID}");
+            return false;
+        }
+        $sessID   = mysql_real_escape_string($sessID, $hander);
+        $sessData = mysql_real_escape_string($sessData, $hander);
         mysql_query('REPLACE INTO  ' . $this->sessionTable . " (  session_id, session_expire, session_data)  VALUES( '$sessID', '$expire',  '$sessData')", $hander);
         if (mysql_affected_rows($hander)) {
             return true;
@@ -170,6 +182,12 @@ class Db
     public function destroy($sessID)
     {
         $hander = is_array($this->hander) ? $this->hander[0] : $this->hander;
+        // 安全修复：验证 session ID 格式并转义
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format in destroy: {$sessID}");
+            return false;
+        }
+        $sessID = mysql_real_escape_string($sessID, $hander);
         mysql_query('DELETE FROM ' . $this->sessionTable . " WHERE session_id = '$sessID'", $hander);
         if (mysql_affected_rows($hander)) {
             return true;

@@ -17,10 +17,16 @@ class ThinkPhpPrinter extends Standard
 {
     var bool $skip = false;
     private $trans = 'md5';
+    private $allowEval = false; // 安全修复：默认禁用 eval() 语句生成
+
     public function __construct(array $options = []) {
         parent::__construct($options);
         if(isset($options['translator'])) {
             $this->trans = $options['translator'];
+        }
+        // 安全修复：允许通过配置启用 eval（不推荐）
+        if(isset($options['allow_eval'])) {
+            $this->allowEval = (bool)$options['allow_eval'];
         }
     }
 
@@ -178,6 +184,15 @@ class ThinkPhpPrinter extends Standard
     }
 
     protected function pExpr_Eval(Expr\Eval_ $node): string {
+        // 安全修复：默认禁用 eval() 语句生成
+        if (!$this->allowEval) {
+            error_log("Security Warning: eval() statement generation is disabled for security reasons.");
+            throw new \RuntimeException(
+                'The eval() statement generation is disabled for security reasons. ' .
+                'If you need to generate code with eval(), set "allow_eval" => true in constructor options (not recommended).'
+            );
+        }
+
         return 'eval(' . $this->processThinkLang($this->p($node->expr)) . ')';
     }
 

@@ -45,7 +45,7 @@ trait Field
      * @var array
      */
     protected $options        = [];
-    protected $escapeHtml     = false;
+    protected $escapeHtml     = true;
     private   $skipValueTypes = ['file', 'password', 'radio', 'checkbox', 'button'];
 
     /**
@@ -136,12 +136,10 @@ trait Field
             } else if(strpos($list, '[') === 0 && strpos($list, ']') === strlen($list) - 1) {
                 $list = json_decode($list, true);
             } else if(substr($list, 0, 4) === 'SQL:') {
-                $sql = substr($sql, 4);
-                if($sql) {
-                    $list = M()->query($sql);
-                } else {
-                    $list = [];
-                }
+                // 安全修复：禁用直接 SQL 执行功能
+                // 使用回调函数或模型方法替代
+                error_log("Security Warning: Direct SQL execution disabled in Form field. Use callback or model method instead.");
+                $list = [];
             } else {
                 $sperator = [',', ';', "\n"];
                 $isFinded = false;
@@ -336,20 +334,33 @@ trait Field
     {
         $html = [];
         // 假设我们的keys 和 value 是相同的,
-        // 拿HTML“required”属性来说,假设是['required']数组,
+        // 拿HTML"required"属性来说,假设是['required']数组,
         // 会以 required="required" 拼接起来,而不是用数字keys去拼接
         foreach ((array)$attributes as $key => $value) {
             if($key === 'tips') continue;
             if (is_numeric($key)) {
                 $key = $value;
             }
+
+            // 验证属性名格式，防止注入
+            if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_-]*$/', $key)) {
+                continue;
+            }
+
             $element = null;
             if (!is_null($value)) {
-                if (is_array($value) || stripos($value, '"') !== false) {
-                    $value = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : $value;
-                    $element = $key . "='" . $value . "'";
-                } else if ($key !== 'checked' || $value) {
-                    $element = $key . '="' . $value . '"';
+                if (is_bool($value)) {
+                    // 布尔属性
+                    if ($value) {
+                        $element = $key;
+                    }
+                } elseif (is_array($value)) {
+                    // 数组值：JSON 编码并转义
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+                    $element = $key . "='" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "'";
+                } elseif ($key !== 'checked' || $value) {
+                    // 字符串值：必须转义
+                    $element = $key . '="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '"';
                 }
             }
 
@@ -389,7 +400,7 @@ trait Field
         if (is_array($value)) {
             $value = json_encode($value, JSON_UNESCAPED_UNICODE);
         }
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8', false);
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', true);
     }
 
 }

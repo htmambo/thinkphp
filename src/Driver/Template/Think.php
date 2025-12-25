@@ -803,12 +803,83 @@ class Think
                 continue;
             }
 
+            // 安全修复：验证模板名称格式，防止��径遍历
+            // 检查是否包含危险的路径遍历字符
+            if (preg_match('/\.\.[\/\\\\]/', $templateName)) {
+                error_log("Security Warning: Path traversal sequence detected in template name: {$templateName}");
+                continue;
+            }
+
             if (false === strpos($templateName, $this->config['template_suffix'])) {
                 // 解析规则为 模块@主题/控制器/操作
                 $templateName = T($templateName);
             }
+
+            // 安全修复：验证文件路径，防止任意文件读取
+            $realPath = realpath($templateName);
+
+            // 1. 验证文件是否存在
+            if ($realPath === false) {
+                error_log("Security Warning: Template file not found or access denied: {$templateName}");
+                continue;
+            }
+
+            // 2. 获取允许的基础路径
+            $allowedPaths = [
+                realpath(APP_PATH) ?: APP_PATH,
+                realpath(ROOT_PATH) ?: ROOT_PATH,
+                realpath(C('TMPL_PATH')) ?: C('TMPL_PATH'),
+                realpath(C('VIEW_PATH')) ?: C('VIEW_PATH'),
+            ];
+
+            // 3. 验证文件在允许的路径内
+            $isAllowed = false;
+            foreach ($allowedPaths as $allowedPath) {
+                if ($allowedPath && strpos($realPath, $allowedPath) === 0) {
+                    $isAllowed = true;
+                    break;
+                }
+            }
+
+            if (!$isAllowed) {
+                error_log("Security Warning: Attempted to load template outside allowed directories: {$templateName} (resolved: {$realPath})");
+                continue;
+            }
+
+            // 4. 验证文件扩展名
+            $allowedExtensions = [
+                $this->config['template_suffix'],
+                '.html',
+                '.htm',
+                '.php',
+                '.tpl'
+            ];
+            $extension = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+            $hasValidExtension = false;
+            foreach ($allowedExtensions as $allowedExt) {
+                if ('.' . $extension === strtolower($allowedExt) || $realPath === $templateName) {
+                    $hasValidExtension = true;
+                    break;
+                }
+            }
+
+            if (!$hasValidExtension) {
+                $filenameExtension = strtolower(pathinfo($realPath, PATHINFO_BASENAME));
+                $isValid = false;
+                foreach ($allowedExtensions as $allowedExt) {
+                    if (str_ends_with($filenameExtension, ltrim($allowedExt, '.'))) {
+                        $isValid = true;
+                        break;
+                    }
+                }
+                if (!$isValid) {
+                    error_log("Security Warning: Disallowed template file extension: {$extension}");
+                    continue;
+                }
+            }
+
             // 获取模板文件内容
-            $parseStr .= file_get_contents($templateName);
+            $parseStr .= file_get_contents($realPath);
         }
         return $parseStr;
     }

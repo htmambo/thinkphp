@@ -1116,6 +1116,13 @@ function S($name, $value = '', $options = null)
 function F($name, $value = '', $path = DATA_PATH)
 {
     static $_cache = array();
+
+    // 安全修复：验证缓存名称格式，防止路径遍历
+    if (!preg_match('/^[a-zA-Z0-9_\-\.]+$/', $name)) {
+        error_log("Security Warning: Invalid cache name in F(): {$name}");
+        return false;
+    }
+
     $filename = $path . $name . '.php';
     if ('' !== $value) {
         if (is_null($value)) {
@@ -1127,7 +1134,13 @@ function F($name, $value = '', $path = DATA_PATH)
                 return Think\Storage::unlink($filename, 'F');
             }
         } else {
-            Think\Storage::put($filename, serialize($value), 'F');
+            // 安全修复：使用 JSON 编码替代 serialize，防止对象注入
+            $jsonData = json_encode($value, JSON_UNESCAPED_UNICODE);
+            // 计算 HMAC 签名以防止数据篡改
+            $hmacKey = C('DATA_CACHE_KEY') ?: 'default_cache_key';
+            $signature = hash_hmac('sha256', $jsonData, $hmacKey);
+            $dataToStore = $signature . '|' . $jsonData;
+            Think\Storage::put($filename, $dataToStore, 'F');
             // 缓存数据
             $_cache[$name] = $value;
             return null;
@@ -1139,7 +1152,40 @@ function F($name, $value = '', $path = DATA_PATH)
     }
 
     if (Think\Storage::has($filename, 'F')) {
-        $value = unserialize(Think\Storage::read($filename, 'F'));
+        $rawData = Think\Storage::read($filename, 'F');
+
+        // 安全修复：验证签名并解析 JSON 数据
+        $hmacKey = C('DATA_CACHE_KEY') ?: 'default_cache_key';
+        $separatorPos = strpos($rawData, '|');
+
+        if ($separatorPos === false) {
+            // 旧格式数据，尝试 unserialize（向后兼容，但不推荐）
+            error_log("Security Warning: Legacy cache format detected for {$name}, please regenerate");
+            $value = @unserialize($rawData);
+            if ($value === false && $rawData !== 'b:0;') {
+                return false;
+            }
+        } else {
+            $signature = substr($rawData, 0, $separatorPos);
+            $jsonData = substr($rawData, $separatorPos + 1);
+
+            // 验证 HMAC 签名
+            $expectedSignature = hash_hmac('sha256', $jsonData, $hmacKey);
+            if (!hash_equals($signature, $expectedSignature)) {
+                error_log("Security Warning: Cache data signature verification failed for {$name}");
+                return false;
+            }
+
+            // 解析 JSON 数据
+            $value = json_decode($jsonData, true);
+
+            // 检查 JSON 解析错误
+            if ($value === null && json_last_error() !== JSON_ERROR_NONE) {
+                error_log("Security Warning: JSON decode failed for cache {$name}: " . json_last_error_msg());
+                return false;
+            }
+        }
+
         $_cache[$name] = $value;
     } else {
         $value = false;
@@ -1234,7 +1280,19 @@ function session($name = '', $value = '')
         }
 
         if (C('VAR_SESSION_ID') && isset($_REQUEST[C('VAR_SESSION_ID')])) {
-            session_id($_REQUEST[C('VAR_SESSION_ID')]);
+            // 安全修复：禁用从请求参数设置 session ID，防止 Session Fixation 攻击
+            // 如果确实需要此功能，请确保在受信任的环境中使用并验证 session ID 格式
+            if (C('SESSION_ALLOW_REQUEST_ID') !== true) {
+                error_log("Security Warning: Attempted to set session ID from request parameter. This is disabled by default to prevent Session Fixation attacks.");
+            } else {
+                $requestedId = $_REQUEST[C('VAR_SESSION_ID')];
+                // 验证 session ID 格式（仅允许字母数字）
+                if (preg_match('/^[a-zA-Z0-9,-]+$/', $requestedId)) {
+                    session_id($requestedId);
+                } else {
+                    error_log("Security Warning: Invalid session ID format in request: {$requestedId}");
+                }
+            }
         } elseif (isset($name['id'])) {
             session_id($name['id']);
         }
@@ -1294,6 +1352,23 @@ function session($name = '', $value = '')
         // 启动session
         if (C('SESSION_AUTO_START')) {
             session_start();
+
+            // 安全修复：Session Fixation 防护
+            // 如果启用自动重新生成 session ID，在 session 启动后立即重新生成
+            if (C('SESSION_AUTO_REGENERATE') && !isset($_SESSION['_session_regenerated'])) {
+                session_regenerate_id(true);
+                $_SESSION['_session_regenerated'] = true;
+            }
+
+            // 验证 session ID 格式
+            $sessionId = session_id();
+            if (!empty($sessionId) && !preg_match('/^[a-zA-Z0-9,-]+$/', $sessionId)) {
+                error_log("Security Warning: Invalid session ID detected: {$sessionId}");
+                session_destroy();
+                // 生成新的安全 session ID
+                session_start();
+                session_regenerate_id(true);
+            }
         }
     } elseif ('' === $value) {
         if ('' === $name) {
@@ -1729,8 +1804,8 @@ function processTrace($e)
             if(!isset($tmp[$key])) $tmp[$key] = '';
         }
         $tmp['func'] = $tmp['class'] . $tmp['type'] . $tmp['function'];
-        if ($tmp['file'] && (!APP_DEBUG || !IS_CLI) && strpos($tmp['file'], CORE_PATH) !== false) {
-            continue;
+        if ($tmp['file'] && (!APP_DEBUG || !IS_CLI)) {
+        //    continue;
         }
         if ($tmp) {
             $result[] = $tmp;

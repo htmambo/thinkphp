@@ -72,6 +72,11 @@ trait Form
     protected $data;
 
     /**
+     * @var bool 是否启用 CSRF 保护
+     */
+    protected $enableCsrfProtection = true;
+
+    /**
      * Input data.
      *
      * @var array
@@ -223,9 +228,15 @@ trait Form
             if (in_array($k, $skip)) {
                 continue;
             }
-            $content .= $k . '="' . $v . '" ';
+            $content .= $k . '="' . htmlspecialchars($v, ENT_QUOTES, 'UTF-8') . '" ';
         }
         $content .= '>';
+
+        // 添加 CSRF token 字段
+        if ($this->enableCsrfProtection) {
+            $token = $this->getCsrfToken();
+            $content .= '<input type="hidden" name="_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '" />';
+        }
 
         $data = [
             'content' => [$content],
@@ -457,6 +468,38 @@ trait Form
         }
         $this->activeTabs->tab($name, $this->options);
         return $this->activeTabs;
+    }
+
+    /**
+     * 启用或禁用 CSRF 保护
+     *
+     * @param bool $enable
+     * @return $this
+     */
+    public function enableCsrfProtection($enable = true)
+    {
+        $this->enableCsrfProtection = $enable;
+        return $this;
+    }
+
+    /**
+     * 获取 CSRF token
+     *
+     * @return string
+     */
+    protected function getCsrfToken()
+    {
+        // 从 session 获取或生成新 token
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['_csrf_token'])) {
+            // 生成安全的随机 token
+            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+        }
+
+        return $_SESSION['_csrf_token'];
     }
 
 }

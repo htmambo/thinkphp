@@ -113,10 +113,25 @@ class Mysqli
     public function read($sessID)
     {
         $handler = count($this->handler)>1 ? $this->handler[1] : $this->handler[0];
-        $res    = mysqli_query($handler, "SELECT session_data AS data FROM " . $this->sessionTable . " WHERE session_id = '$sessID'   AND session_expire >" . time());
-        if ($res) {
-            $row = mysqli_fetch_assoc($res);
-            return $row['data'];
+        // 安全修复：验证 session ID 格式并使用预处理语句
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format: {$sessID}");
+            return "";
+        }
+
+        // 使用预处理语句防止 SQL 注入
+        $stmt = mysqli_prepare($handler, "SELECT session_data AS data FROM " . $this->sessionTable . " WHERE session_id = ? AND session_expire > ?");
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "si", $sessID, $time);
+            $time = time();
+            mysqli_stmt_execute($stmt);
+            $res = mysqli_stmt_get_result($stmt);
+            if ($res) {
+                $row = mysqli_fetch_assoc($res);
+                mysqli_stmt_close($stmt);
+                return $row['data'] ?? "";
+            }
+            mysqli_stmt_close($stmt);
         }
         return "";
     }
@@ -131,9 +146,22 @@ class Mysqli
     {
         $handler = $this->handler[0];
         $expire = time() + $this->lifeTime;
-        mysqli_query($handler, "REPLACE INTO  " . $this->sessionTable . " (  session_id, session_expire, session_data)  VALUES( '$sessID', '$expire',  '$sessData')");
-        if (mysqli_affected_rows($handler)) {
-            return true;
+        // 安全修复：验证 session ID 格式
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format in write: {$sessID}");
+            return false;
+        }
+
+        // 使用预处理语句防止 SQL 注入
+        $stmt = mysqli_prepare($handler, "REPLACE INTO " . $this->sessionTable . " (session_id, session_expire, session_data) VALUES (?, ?, ?)");
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "sis", $sessID, $expire, $sessData);
+            mysqli_stmt_execute($stmt);
+            $affected = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+            if ($affected > 0) {
+                return true;
+            }
         }
 
         return false;
@@ -147,9 +175,22 @@ class Mysqli
     public function destroy($sessID)
     {
         $handler = $this->handler[0];
-        mysqli_query($handler, "DELETE FROM " . $this->sessionTable . " WHERE session_id = '$sessID'");
-        if (mysqli_affected_rows($handler)) {
-            return true;
+        // 安全修复：验证 session ID 格式
+        if (!preg_match('/^[a-zA-Z0-9,-]+$/', $sessID)) {
+            error_log("Security Warning: Invalid session ID format in destroy: {$sessID}");
+            return false;
+        }
+
+        // 使用预处理语句防止 SQL 注入
+        $stmt = mysqli_prepare($handler, "DELETE FROM " . $this->sessionTable . " WHERE session_id = ?");
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, "s", $sessID);
+            mysqli_stmt_execute($stmt);
+            $affected = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+            if ($affected > 0) {
+                return true;
+            }
         }
 
         return false;
