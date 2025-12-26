@@ -9,13 +9,13 @@
 // | Author: liu21st <liu21st@gmail.com>
 // +----------------------------------------------------------------------
 
-namespace think\migration\command\migrate;
+namespace Think\Migration\Command\Migrate;
 
 use Phinx\Migration\MigrationInterface;
-use think\console\input\Option as InputOption;
-use think\console\Input;
-use think\console\Output;
-use think\migration\command\Migrate;
+use Think\Console\Input\Option as InputOption;
+use Think\Console\Input;
+use Think\Console\Output;
+use Think\Migration\Command\Migrate;
 
 class Rollback extends Migrate
 {

@@ -72,7 +72,7 @@ abstract class Command extends \Think\Console\Command
         ];
         $dbConfig = [];
         foreach ($cfgMap as $k1 => $k2) {
-            //懒得判断是否开启了主从配置
+            // 取第一个配置项（主从配置暂未处理）
             $dbConfig[$k1] = explode(',', strval($config[$k2]) . ',')[0];
         }
         //参数中可能传递了新的数据库访问信息
@@ -103,8 +103,9 @@ abstract class Command extends \Think\Console\Command
             }
         }
         if($err) {
-            $this->output->error($err);
-            exit;
+            throw new \InvalidArgumentException(
+                'Database configuration error: ' . implode(', ', $err)
+            );
         }
         $table = $dbConfig['table_prefix'] . C('DB_MIGRATION_TABLE', null, 'migrations');
         $dbConfig['default_migration_table'] = $table;

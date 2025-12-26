@@ -11,8 +11,23 @@
 
 namespace Think\Driver\Messager;
 
+/**
+ * 企业微信消息推送驱动
+ *
+ * 通过企业微信应用消息接口推送文本消息到企业微信。
+ * 支持 access_token 自动获取和缓存，支持 token 失效自动重试。
+ *
+ * 配置参数：
+ * - corp_id: 企业 ID
+ * - corp_secret: 应用凭证密钥
+ * - agent_id: 应用 ID
+ * - user_id: 接收用户 ID，默认 '@all' 表示全体成员
+ *
+ * @package Think\Driver\Messager
+ */
 class WeChat extends Driver
 {
+    /** @var int 请求超时时间（秒） */
     const TIMEOUT = 33;
 
     /**
@@ -26,34 +41,49 @@ class WeChat extends Driver
     protected $corpSecret;
 
     /**
-     * @var integer 企业微信应用 ID
+     * @var int 企业微信应用 ID
      */
     protected $agentId;
 
     /**
-     * @var integer 企业微信用户id, 用于指定接收消息的用户，多个用户用“|”分割 https://qyapi.weixin.qq.com/cgi-bin/user/simplelist?access_token=ACCESS_TOKEN&fetch_child=FETCH_CHILD&department_id=1
+     * @var string 企业微信用户 ID
+     *
+     * 用于指定接收消息的用户，多个用户用 "|" 分隔
+     * 特殊值 "@all" 表示发送给全体成员
+     *
+     * @see https://qyapi.weixin.qq.com/cgi-bin/user/simplelist?access_token=ACCESS_TOKEN&fetch_child=FETCH_CHILD&department_id=1
      */
     protected $userId;
 
-    protected function _initialize()
+    /**
+     * 初始化配置
+     *
+     * 从配置数组中读取企业微信相关配置参数
+     *
+     * @return void
+     */
+    protected function _initialize(): void
     {
         $this->corpId = $this->config['corp_id'];
         $this->corpSecret = $this->config['corp_secret'];
         $this->agentId = $this->config['agent_id'];
-        $this->userId = $this->config['user_id']?:'@all';
+        $this->userId = $this->config['user_id'] ?: '@all';
     }
 
     /**
-     * 获取 access_token
+     * 获取企业微信 access_token
      *
-     * @param bool $force
+     * 自动从缓存获取或从企业微信 API 获取，支持强制刷新。
+     * 获取的 token 会缓存到本地，有效期减去 100 秒以避免边界情况。
      *
-     * @return mixed|string
-     * @throws \Exception
+     * @param bool $force 是否强制刷新 token，默认 false
+     * @return string access_token
+     * @throws \Exception 当获取失败时抛出
+     * @see https://work.weixin.qq.com/api/doc/90000/90135/91039
      */
-    protected function getAccessToken($force = false)
+    protected function getAccessToken(bool $force = false): string
     {
-        $key = 'wechat_' . $this->corpId . '_' . $this->corpId;
+        $key = 'wechat_' . $this->corpId . '_' . $this->agentId;
         if (!$force) {
             $accessToken = S($key);
             if($accessToken) {
@@ -67,7 +97,7 @@ class WeChat extends Driver
         ];
         $resp = $this->curl($url, $query);
         if(!$resp) {
-            E('error');
+            throw new \RuntimeException('HTTP request failed while getting access token');
         }
         $resp = (array)json_decode($resp, true);
 
@@ -80,25 +110,21 @@ class WeChat extends Driver
     }
 
     /**
-     * 送信
+     * 发送企业微信消息
      *
-     * 由于腾讯要求 markdown 语法消息必须使用 企业微信 APP 才能查看，然而我并不想单独安装 企业微信 APP，故本方法不使用 markdown 语法，
-     * 而是直接使用纯文本 text 类型，纯文本类型里腾讯额外支持 a 标签，所以基本满足需求
+     * 使用纯文本 text 类型消息（而非 markdown），因为 markdown 需要企业微信 APP 才能查看。
+     * text 类型支持 <a> 标签和 \n 换行，基本满足使用需求。
      *
-     * 参考：
-     * https://work.weixin.qq.com/api/doc/90000/90135/91039
-     * https://work.weixin.qq.com/api/doc/90000/90135/90236#%E6%96%87%E6%9C%AC%E6%B6%88%E6%81%AF
-     *
-     * @param string $content
-     * @param string $subject
-     * @param array $data
-     * @param string|null $recipient
-     * @param mixed ...$params
-     *
-     * @return bool
-     * @throws \Exception
+     * @param string $content 消息内容
+     * @param string $subject 消息标题，会添加到���容开头
+     * @param array $data 额外数据（本驱动不使用）
+     * @param string|null $recipient 单独指定接收者（本驱动不使用，使用配置的 user_id）
+     * @param mixed ...$params 其他参数
+     * @return bool 发送成功返回 true
+     * @throws \Exception 当发送失败时抛出
+     * @see https://work.weixin.qq.com/api/doc/90000/90135/90236#文本消息
      */
-    public function send($content, $subject = '', $data = [], $recipient = null, ...$params)
+    public function send(string $content, string $subject = '', array $data = [], ?string $recipient = null, ...$params): bool
     {
         $this->check($content, $data);
 
@@ -107,7 +133,7 @@ class WeChat extends Driver
         }
         $footer = $this->getFooter();
         if($footer) {
-            $content .= "\n\n" . $content;
+            $content .= "\n\n" . $footer;
         }
         try {
             $accessToken = $this->getAccessToken();
@@ -125,8 +151,11 @@ class WeChat extends Driver
 
             return $this->doSend($accessToken, $body);
         } catch (\Exception $e) {
-            E(sprintf('企业微信送信失败：<red>%s</red>', $e->getMessage()));
-            return false;
+            $this->logError('企业微信送信失败', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
     }
 
@@ -140,7 +169,7 @@ class WeChat extends Driver
      * @return bool
      * @throws \Exception
      */
-    private function doSend($accessToken, $body, &$numOfRetries = 0)
+    private function doSend(string $accessToken, array $body, int &$numOfRetries = 0): bool
     {
         $url = 'https://qyapi.weixin.qq.com/cgi-bin/message/send';
         $query = [
@@ -151,7 +180,7 @@ class WeChat extends Driver
         ];
         $resp = $this->curl($url, $query, $body, $header);
         if(!$resp) {
-            E('curl ' . $url . ' is error');
+            throw new \RuntimeException('HTTP request failed: ' . $url);
         }
         $resp = (array)json_decode($resp, true);
 

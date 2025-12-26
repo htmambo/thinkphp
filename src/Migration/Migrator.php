@@ -17,11 +17,13 @@ use Think\Migration\Db\Table;
 class Migrator extends AbstractMigration
 {
     /**
-     * @param string $tableName
-     * @param array $options
+     * 获取表操作实例
+     *
+     * @param string $tableName 表名
+     * @param array $options 表选项
      * @return Table
      */
-    public function table($tableName, $options = [])
+    public function table(string $tableName, array $options = []): Table
     {
         return new Table($tableName, $options, $this->getAdapter());
     }

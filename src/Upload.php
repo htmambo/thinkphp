@@ -348,7 +348,6 @@ class Upload
             return false;
         }
         /* 检查文件Mime类型 */
-        //TODO:FLASH上传的文件获取到的mime类型都为application/octet-stream
         if (!$this->checkMime($file['type'])) {
             $this->error = L('UPLOADING FILE MIME TYPE IS NOT ALLOWED!');
             return false;
@@ -459,25 +458,37 @@ class Upload
      * 根据指定的规则获取文件或目录名称
      * @param  array  $rule     规则
      * @param  string $filename 原文件名
-     * @return string           文件或目录名称
+     * @return string|false           文件或目录名称，失败返回 false
      */
     private function getName($rule, $filename)
     {
         $name = '';
+
+        // 允许的命名函数白名单
+        $allowedFuncs = ['uniqid', 'md5', 'sha1', 'time', 'date', 'com_create_guid', 'microtime'];
+
         if (is_array($rule)) {
             //数组规则
             $func = $rule[0];
             $param = (array) $rule[1];
+
+            // 白名单检查
+            if (!in_array($func, $allowedFuncs, true)) {
+                $this->error = L('Invalid naming function');
+                return false;
+            }
+
             foreach ($param as &$value) {
                 $value = str_replace('__FILE__', $filename, $value);
             }
             $name = call_user_func_array($func, $param);
         } elseif (is_string($rule)) {
             //字符串规则
-            if (function_exists($rule)) {
+            if (in_array($rule, $allowedFuncs, true) && function_exists($rule)) {
                 $name = call_user_func($rule);
             } else {
-                $name = $rule;
+                $this->error = L('Invalid naming function');
+                return false;
             }
         }
         return $name;

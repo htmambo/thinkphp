@@ -318,9 +318,14 @@ class Input
 
     /**
      * 验证输入
-     * @throws \RuntimeException
+     *
+     * 检查是否所有必需的参数都已提供
+     *
+     * @access public
+     * @return void
+     * @throws \RuntimeException 当缺少必需参数时抛出
      */
-    public function validate()
+    public function validate(): void
     {
         if (count($this->arguments) < $this->definition->getArgumentRequiredCount()) {
             throw new \RuntimeException(L('Not enough arguments.'));
@@ -347,20 +352,28 @@ class Input
 
     /**
      * 获取所有的参数
-     * @return Argument[]
+     *
+     * 返回所有参数的值，包括默认值和实际传入的值
+     *
+     * @access public
+     * @return array<string,mixed> 参数数组，键为参数名
      */
-    public function getArguments()
+    public function getArguments(): array
     {
         return array_merge($this->definition->getArgumentDefaults(), $this->arguments);
     }
 
     /**
-     * 根据名称获取参数
+     * 根据名称获取参数值
+     *
+     * 获取指定参数的值，如果未提供则返回默认值
+     *
+     * @access public
      * @param string $name 参数名
-     * @return mixed
-     * @throws \InvalidArgumentException
+     * @return mixed 参数值
+     * @throws \InvalidArgumentException 当参数不存在时抛出
      */
-    public function getArgument($name)
+    public function getArgument(string $name)
     {
         if (!$this->definition->hasArgument($name)) {
             throw new \InvalidArgumentException(L('The "{$name}" argument does not exist.', ['name' => $name]));
@@ -372,11 +385,16 @@ class Input
 
     /**
      * 设置参数的值
+     *
+     * 覆盖指定参数的值
+     *
+     * @access public
      * @param string $name  参数名
-     * @param string $value 值
-     * @throws \InvalidArgumentException
+     * @param mixed $value 参数值
+     * @return void
+     * @throws \InvalidArgumentException 当参数不存在时抛出
      */
-    public function setArgument($name, $value)
+    public function setArgument(string $name, $value): void
     {
         if (!$this->definition->hasArgument($name)) {
             throw new \InvalidArgumentException(L('The "{$name}" argument does not exist.', ['name' => $name]));
@@ -397,20 +415,28 @@ class Input
 
     /**
      * 获取所有的选项
-     * @return Option[]
+     *
+     * 返回所有选项的值，包括默认值和实际传入的值
+     *
+     * @access public
+     * @return array<string,mixed> 选项数组，键为选项名
      */
-    public function getOptions()
+    public function getOptions(): array
     {
         return array_merge($this->definition->getOptionDefaults(), $this->options);
     }
 
     /**
      * 获取选项值
+     *
+     * 获取指定选项的值，如果未提供则返回默认值
+     *
+     * @access public
      * @param string $name 选项名称
-     * @return mixed
-     * @throws \InvalidArgumentException
+     * @return mixed 选项值
+     * @throws \InvalidArgumentException 当选项不存在时抛出
      */
-    public function getOption($name)
+    public function getOption(string $name)
     {
         if (!$this->definition->hasOption($name)) {
             throw new \InvalidArgumentException(L('The "{$name}" option does not exist.', ['name' => $name]));
@@ -421,11 +447,16 @@ class Input
 
     /**
      * 设置选项值
-     * @param string $name       选项名
-     * @param string|bool $value 值
-     * @throws \InvalidArgumentException
+     *
+     * 覆盖指定选项的值
+     *
+     * @access public
+     * @param string $name 选项名
+     * @param mixed $value 选项值
+     * @return void
+     * @throws \InvalidArgumentException 当选项不存在时抛出
      */
-    public function setOption($name, $value)
+    public function setOption(string $name, $value): void
     {
         if (!$this->definition->hasOption($name)) {
             throw new \InvalidArgumentException(L('The "{$name}" option does not exist.', ['name' => $name]));

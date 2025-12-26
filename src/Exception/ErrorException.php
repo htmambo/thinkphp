@@ -19,38 +19,77 @@ use Think\Exception;
  * 除开从 think\Exception 继承的功能
  * 其他和PHP系统\ErrorException功能基本一样
  */
-class ErrorException extends Exception
+class ErrorException extends Exception implements ThinkExceptionInterface
 {
     /**
-     * 用于保存错误级别
-     * @var integer
+     * 获取错误级别（继承父类实现）
+     * @return int
      */
-    protected $severity;
-
-    /**
-     * 错误异常构造函数
-     * @access public
-     * @param  integer $severity 错误级别
-     * @param  string  $message  错误详细信息
-     * @param  string  $file     出错文件路径
-     * @param  integer $line     出错行号
-     */
-    public function __construct($severity, $message, $file = '', $line = 0)
+    final public function getSeverity(): int
     {
-        $this->severity = $severity;
-        $this->message  = $message;
-        $this->file     = $file;
-        $this->line     = $line;
-        $this->code     = 0;
+        return parent::getSeverity();
     }
 
     /**
-     * 获取错误级别
+     * 错误异常构造函数
+     *
      * @access public
-     * @return integer 错误级别
+     * @param int $severity 错误级别
+     * @param string $message 错误详细信息
+     * @param string $file 出错文件路径
+     * @param int $line 出错行号
+     * @param array $context 上下文信息（可选）
      */
-    final public function getSeverity()
+    public function __construct($severity, $message, $file = '', $line = 0, $context = [])
     {
-        return $this->severity;
+        $this->file = $file;
+        $this->line = $line;
+        $this->code = 0;
+        $this->message = $message;
+
+        // 自动判断是否可恢复
+        $recoverable = $this->isRecoverableError($severity);
+
+        // 自动收集请求上下文
+        if (empty($context)) {
+            $context = ExceptionContext::capture();
+        }
+
+        // 添加文件和行号到上下文
+        $context['error_file'] = $file;
+        $context['error_line'] = $line;
+
+        // 调用父类构造函数
+        parent::__construct($message, 0, $context, $severity, $recoverable);
+    }
+
+    /**
+     * 判断错误是否可恢复
+     *
+     * @param int $severity 错误级别
+     * @return bool
+     */
+    private function isRecoverableError(int $severity): bool
+    {
+        // 致命错误不可恢复
+        $fatalErrors = [
+            E_ERROR,
+            E_PARSE,
+            E_CORE_ERROR,
+            E_COMPILE_ERROR,
+            E_USER_ERROR,
+        ];
+
+        return !in_array($severity, $fatalErrors, true);
+    }
+
+    /**
+     * 实现接口：是否可恢复
+     *
+     * @return bool
+     */
+    public function isRecoverable(): bool
+    {
+        return $this->isRecoverableError($this->getSeverity());
     }
 }

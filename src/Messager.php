@@ -13,7 +13,13 @@ namespace Think;
 use Think\Exception\ClassNotFoundException;
 
 /**
- * 消息推送类
+ * 消息推送门面类
+ *
+ * 提供统一的多渠道消息推送接口，支持企业微信、微信模板、Server酱、Bark、Telegram Bot 等多种推送方式。
+ * 通过工厂模式创建驱动实例，通过单例模式管理实例，通过魔术方法实现批量推送。
+ *
+ * @package Think
+ * @author  liu21st <liu21st@gmail.com>
  *
  * @static array send(string $content, string $subject = '', array $data = [], string $recipient = null, ...$params)
  */
@@ -22,27 +28,34 @@ class Messager
 
     /**
      * 操作句柄
-     * @var string
+     *
+     * @var object|null
      * @access protected
      */
     protected $handler;
 
     /**
      * 缓存连接参数
-     * @var integer
+     *
+     * 用于存储不同配置的组合标识
+     *
+     * @var array
      * @access protected
      */
-    protected $options = array();
+    protected $options = [];
 
     /**
-     * 连接缓存
+     * 连接指定类型的消息推送驱动
+     *
+     * 使用工厂模式创建指定类型的驱动实例。如果未指定类型，则使用配置文件中的默认类型。
+     *
+     * @param string $type 消息推送驱动类型（如 'WeChat', 'ServerChan' 等）
+     * @param array $options 驱动配置参数
+     * @return object 驱动实例
+     * @throws ClassNotFoundException 当驱动类不存在时抛出
      * @access public
-     * @param string $type   消息推送类型
-     * @param array $options 配置数组
-     * @return object
-     * @throws Exception
      */
-    public function connect($type = '', $options = array())
+    public function connect(string $type = '', array $options = []): object
     {
         if (empty($type)) {
             $type = C('MESSAGE_SEND_TYPE');
@@ -57,15 +70,18 @@ class Messager
     }
 
     /**
-     * 取得缓存类实例
+     * 获取驱动单例实例
+     *
+     * 使用单��模式管理驱动实例，相同类型和配置的驱动只会被创建一次。
+     * 实例根据类型和配置的组合 GUID 进行缓存。
+     *
+     * @param string $type 消息推送驱动类型
+     * @param array $options 驱动配置参数
+     * @return object 驱动实例
      * @static
      * @access public
-     * @param string $type
-     * @param array $options
-     * @return Cache
-     * @throws Exception
      */
-    public static function getInstance($type = '', $options = array())
+    public static function getInstance(string $type = '', array $options = []): object
     {
         static $_instance = array();
         $guid             = $type . to_guid_string($options);
@@ -77,13 +93,27 @@ class Messager
     }
 
     /**
-     * @param $method
-     * @param $params
+     * 静态魔术方法调用
      *
-     * @return array
-     * @throws \Exception
+     * 调用所有已启用驱动的指定方法，实现批量推送功能。
+     * 根据配置文件中的 SEND_MESSAGE 配置，遍历所有启用的驱动并执行指定方法。
+     *
+     * 返回数组格式：
+     * ```php
+     * [
+     *     'WeChat' => 'success',  // 成功
+     *     'ServerChan' => 'fail', // 失败
+     *     'Bark' => 'ignore',     // 未启用
+     * ]
+     * ```
+     *
+     * @param string $method 要调用的方法名（通常是 'send'）
+     * @param array $params 传递给方法的参数
+     * @return array 各驱动的执行结果数组
+     * @throws \Exception 当驱动实例化失败时抛出
+     * @static
      */
-    public static function __callStatic($method, $params)
+    public static function __callStatic(string $method, array $params): array
     {
         $result = [];
 

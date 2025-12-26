@@ -14,6 +14,8 @@ namespace Think\Exception;
 use Exception;
 use Think\Console\Output;
 use Think\Log;
+use Think\Exception\ThinkExceptionInterface;
+use Think\Exception\ExceptionContext;
 
 class Handle
 {
@@ -45,19 +47,64 @@ class Handle
                     'message' => $this->getMessage($exception),
                     'code'    => $this->getCode($exception),
                 ];
+
+                // 如果异常实现了新接口，添加上下文信息
+                if ($exception instanceof ThinkExceptionInterface) {
+                    $context = $exception->getContext();
+                    if (!empty($context)) {
+                        $data['context'] = $context;
+                    }
+                    $data['severity'] = $exception->getSeverity();
+                    $data['recoverable'] = $exception->isRecoverable();
+                }
+
                 $log = '[' . $data['code'] . ']' . $data['message'] . '[' . $data['file'] . ':' . $data['line'] . ']';
             } else {
                 $data = [
                     'code'    => $this->getCode($exception),
                     'message' => $this->getMessage($exception),
                 ];
+
+                // 生产环境下也记录关键的上下文信息（脱敏）
+                if ($exception instanceof ThinkExceptionInterface) {
+                    $context = $this->getSafeContext($exception->getContext());
+                    if (!empty($context)) {
+                        $data['context'] = $context;
+                    }
+                }
+
                 $log = '[' . $data['code'] . ']' . $data['message'];
             }
             if (C('LOG_RECORD')) {
                 $log .= "\r\n" . $exception->getTraceAsString();
+                // 如果有上下文信息，添加到日志
+                if (isset($data['context'])) {
+                    $log .= "\r\n" . json_encode($data['context'], JSON_UNESCAPED_UNICODE);
+                }
                 Log::write($log);
             }
         }
+    }
+
+    /**
+     * 获取安全的上下文信息（用于生产环境）
+     *
+     * @access protected
+     * @param  array $context
+     * @return array
+     */
+    protected function getSafeContext(array $context): array
+    {
+        $safeKeys = ['user_id', 'ip', 'url', 'method', 'timestamp', 'request_id'];
+        $safe = [];
+
+        foreach ($safeKeys as $key) {
+            if (isset($context[$key])) {
+                $safe[$key] = $context[$key];
+            }
+        }
+
+        return $safe;
     }
 
     protected function isIgnoreReport(Exception $exception)
@@ -267,7 +314,12 @@ class Handle
     {
         $data = [];
 
-        if ($exception instanceof \Think\Exception && method_exists($exception, 'getdata')) {
+        // 优先使用新的接口方法
+        if ($exception instanceof ThinkExceptionInterface) {
+            $data = $exception->getContext();
+        }
+        // 兼容旧的 getData 方法
+        elseif ($exception instanceof \Think\Exception && method_exists($exception, 'getdata')) {
             $data = $exception->getData();
         }
 

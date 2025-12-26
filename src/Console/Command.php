@@ -507,25 +507,57 @@ class Command
      * @param Table $table
      * @return string
      */
-    protected function table(Table $table)
+    protected function table(Table $table): string
     {
         $content = $table->render();
         $this->output->writeln($content);
         return $content;
     }
-    protected function showVerboseInfo($msg, $style = 'info') {
-        if (Output::VERBOSITY_VERBOSE <= $this->output->getVerbosity()) {
-            $this->output->block($style, strip_tags($msg));
+
+    /**
+     * 根据详细程度级别输出信息
+     * @param string $message 要输出的消息
+     * @param int $level 详细程度级别 (Output::VERBOSITY_VERBOSE, VERBOSITY_VERY_VERBOSE, VERBOSITY_DEBUG)
+     * @param string $style 输出样式
+     * @return void
+     */
+    protected function showInfoAtVerbosityLevel(string $message, int $level, string $style = 'info'): void
+    {
+        if ($level <= $this->output->getVerbosity()) {
+            $this->output->block($style, strip_tags($message));
         }
     }
-    protected function showVeryVerboseInfo($msg, $style = 'info') {
-        if (Output::VERBOSITY_VERY_VERBOSE <= $this->output->getVerbosity()) {
-            $this->output->block($style, strip_tags($msg));
-        }
+
+    /**
+     * 输出 VERBOSE 级别信息
+     * @param string $message 要输出的消息
+     * @param string $style 输出样式
+     * @return void
+     */
+    protected function showVerboseInfo(string $message, string $style = 'info'): void
+    {
+        $this->showInfoAtVerbosityLevel($message, Output::VERBOSITY_VERBOSE, $style);
     }
-    protected function showDebugInfo($msg, $style = 'info') {
-        if (Output::VERBOSITY_DEBUG <= $this->output->getVerbosity()) {
-            $this->output->block($style, strip_tags($msg));
-        }
+
+    /**
+     * 输出 VERY_VERBOSE 级别信���
+     * @param string $message 要输出的消息
+     * @param string $style 输出样式
+     * @return void
+     */
+    protected function showVeryVerboseInfo(string $message, string $style = 'info'): void
+    {
+        $this->showInfoAtVerbosityLevel($message, Output::VERBOSITY_VERY_VERBOSE, $style);
+    }
+
+    /**
+     * 输出 DEBUG 级别信息
+     * @param string $message 要输出的消息
+     * @param string $style 输出样式
+     * @return void
+     */
+    protected function showDebugInfo(string $message, string $style = 'info'): void
+    {
+        $this->showInfoAtVerbosityLevel($message, Output::VERBOSITY_DEBUG, $style);
     }
 }

@@ -63,7 +63,7 @@ class QueueService extends Service
             $this->code = $code;
             $this->record = M('SystemQueue')->where(['code' => $this->code])->find();
             if (empty($this->record)) {
-                throw new Exception("Qeueu initialize failed, Queue {$code} not found.");
+                throw new Exception("Queue initialize failed, Queue {$code} not found.");
             }
             [$this->code, $this->title] = [$this->record['code'], $this->record['title']];
             if($this->record['exec_data']) {
@@ -81,7 +81,7 @@ class QueueService extends Service
     public function reset(int $wait = 0): QueueService
     {
         if (empty($this->record)) {
-            throw new Exception("Qeueu reset failed, Queue {$this->code} data cannot be empty!");
+            throw new Exception("Queue reset failed, Queue {$this->code} data cannot be empty!");
         }
         M('SystemQueue')->where(['code' => $this->code])
             ->strict(false)

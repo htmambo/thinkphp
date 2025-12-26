@@ -91,6 +91,16 @@ class RunServer extends Command
         $output->writeln(L('Document root is: {$root}', ['root' => $root]));
 
         if(count($result) > 0) {
+            // 验证主机名和端口号以防止命令注入
+            if (!$this->isValidHost($host)) {
+                $output->error(L('Invalid host: {$host}', ['host' => $host]));
+                return;
+            }
+            if (!$this->isValidPort($port)) {
+                $output->error(L('Invalid port: {$port}', ['port' => $port]));
+                return;
+            }
+
             if($this->process->iswin()) $this->process->exec("start http://{$host}:{$port}");
             elseif($this->process->islinux()) $this->process->exec("xdg-open http://{$host}:{$port}");
             elseif($this->process->ismac()) $this->process->exec("open http://{$host}:{$port}");
@@ -107,6 +117,44 @@ class RunServer extends Command
                 $result = $this->process->exec($this->command, true);
             }
         }
+    }
+
+    /**
+     * 验证主机名是否有效
+     * @param string $host
+     * @return bool
+     */
+    private function isValidHost(string $host): bool
+    {
+        // 允许 localhost 和 0.0.0.0
+        if ($host === 'localhost' || $host === '0.0.0.0' || $host === '127.0.0.1') {
+            return true;
+        }
+
+        // 验证 IP 地址
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return true;
+        }
+
+        // 验证域名格式（只允许字母数字、连字符和点）
+        return preg_match('/^[a-zA-Z0-9.-]+$/', $host) === 1;
+    }
+
+    /**
+     * 验证端口号是否有效
+     * @param string|int $port
+     * @return bool
+     */
+    private function isValidPort($port): bool
+    {
+        // 端口必须是数字
+        if (!ctype_digit((string)$port)) {
+            return false;
+        }
+
+        $portNum = (int)$port;
+        // 有效端口范围 1-65535
+        return $portNum >= 1 && $portNum <= 65535;
     }
 
 }

@@ -91,13 +91,15 @@ class ProcessService extends Service
     {
         $list = [];
         if ($this->iswin()) {
-            $lines = $this->exec('wmic process where name="' . $name . '" get processid,CommandLine', true);
+            $safeName = escapeshellarg($name);
+            $lines = $this->exec('wmic process where name=' . $safeName . ' get processid,CommandLine', true);
             foreach ($lines as $line) if ($this->_issub($line, $cmd) !== false) {
                 $attr = explode(' ', $this->_space($line));
                 $list[] = ['pid' => array_pop($attr), 'cmd' => join(' ', $attr)];
             }
         } else {
-            $lines = $this->exec("ps ax|grep -v grep|grep \"{$cmd}\"", true);
+            $safeCmd = escapeshellarg($cmd);
+            $lines = $this->exec("ps ax|grep -v grep|grep {$safeCmd}", true);
             foreach ($lines as $line) if ($this->_issub($line, $cmd) !== false) {
                 $attr = explode(' ', $this->_space($line));
                 [$pid] = [array_shift($attr), array_shift($attr), array_shift($attr), array_shift($attr)];

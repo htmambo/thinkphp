@@ -11,8 +11,28 @@
 
 namespace Think\Driver\Messager;
 
+/**
+ * Bark iOS 消息推送驱动
+ *
+ * Bark 是一款专门为 iOS 设计的消息推送工具，支持丰富的自定义选项。
+ *
+ * 配置参数：
+ * - bark_key: Bark Key 或完整 URL
+ * - bark_url: Bark 服务器地址，默认 https://api.day.app
+ * - bark_is_archive: 是��保存到历史记录
+ * - bark_group: 分组名称
+ * - bark_level: 通知级别（active/timeSensitive/passive）
+ * - bark_icon: 图标 URL（仅 iOS 15+）
+ * - bark_jump_url: 点击跳转 URL
+ * - bark_sound: 通知铃声
+ * - bark_copy: 自动复制的内容
+ *
+ * @package Think\Driver\Messager
+ * @see https://github.com/Finb/Bark
+ */
 class Bark extends Driver
 {
+    /** @var int 请求超时时间（秒） */
     const TIMEOUT = 33;
 
     /**
@@ -65,7 +85,7 @@ class Bark extends Driver
     /**
      * @var string 携带 copy 参数， 则上面两种复制操作，将只复制 copy 参数的值
      */
-    protected $copy = 'https://my.freenom.com/domains.php?a=renewals';
+    protected $copy;
 
     /**
      * @var string 通知铃声
@@ -77,12 +97,13 @@ class Bark extends Driver
         $this->barkKey = $this->parseBarkKey($this->config['bark_key']);
         $this->barkUrl = rtrim($this->config['bark_url'], '/');
 
-        $this->isArchive = $this->config['bark_is_archive'];
-        $this->group = $this->config['bark_group'];
-        $this->level = $this->config['bark_level'];
-        $this->icon = $this->config['bark_icon'];
-        $this->jumpUrl = $this->config['bark_jump_url'];
-        $this->sound = $this->config['bark_sound'];
+        $this->isArchive = $this->config['bark_is_archive'] ?? null;
+        $this->group = $this->config['bark_group'] ?? null;
+        $this->level = $this->config['bark_level'] ?? null;
+        $this->icon = $this->config['bark_icon'] ?? null;
+        $this->jumpUrl = $this->config['bark_jump_url'] ?? null;
+        $this->sound = $this->config['bark_sound'] ?? null;
+        $this->copy = $this->config['bark_copy'] ?? null;
     }
 
     /**
@@ -116,7 +137,7 @@ class Bark extends Driver
      * @return bool|mixed
      * @throws \Exception
      */
-    public function send($content, $subject = '', $data = [], $recipient = null, ...$params)
+    public function send(string $content, string $subject = '', array $data = [], ?string $recipient = null, ...$params): bool
     {
         $this->check($content, $data);
 
@@ -156,7 +177,6 @@ class Bark extends Driver
         try {
             $url = sprintf('%s/%s/', $this->barkUrl, $this->barkKey);
             $data = [
-                'query' => $query,
                 'form_params' => $formParams,
             ];
 
@@ -170,9 +190,11 @@ class Bark extends Driver
 
             throw new \Exception($resp['message'] ?:'未知错误');
         } catch (\Exception $e) {
-            E(sprintf('Bark 送信失败：<red>%s</red>', $e->getMessage()));
-
-            return false;
+            $this->logError('Bark 送信失败', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
     }
 }

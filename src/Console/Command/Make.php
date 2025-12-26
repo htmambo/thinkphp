@@ -21,6 +21,11 @@ use Think\Facade\Env;
 
 abstract class Make extends Command
 {
+    /**
+     * 默认目录权限
+     */
+    const DEFAULT_DIR_PERMISSIONS = 0755;
+
     protected $type;
 
     abstract protected function getStub();
@@ -45,7 +50,7 @@ abstract class Make extends Command
         }
 
         if (!is_dir(dirname($pathname))) {
-            mkdir(dirname($pathname), 0755, true);
+            mkdir(dirname($pathname), self::DEFAULT_DIR_PERMISSIONS, true);
         }
 
         file_put_contents($pathname, $this->buildClass($classname));

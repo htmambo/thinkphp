@@ -74,14 +74,6 @@ class Generator extends Command
                 $output->info(sprintf('%s table migration file %s generated', $table['name'], str_replace(ROOT_PATH, '', $content)));
             }
         }
-        //处理外键
-        //foreach ($tables as $key => $table) {
-        //    $tableForeign = (new ForeignKeyGenerator())->setOptions($table);
-        //    if ($tableForeign->hasForeignKeys()) {
-        //        file_put_contents($migrationsPath . ($key + 1) * 100 . date('YmdHis') . '_' . $table->getName() . '_foreign_keys.php',
-        //            $tableForeign->output());
-        //    }
-        //}
     }
 }
 

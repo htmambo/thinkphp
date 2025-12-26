@@ -17,31 +17,35 @@ use Think\Exception\PDOException;
 /**
  * ThinkPHP 数据库中间层实现类
  *
- * @method static mixed query($str, $fetchSql = false, $master = false)
- * @method static mixed execute($str, $fetchSql = false)
+ * @method static mixed query(string $str, bool $fetchSql = false, bool $master = false)
+ * @method static mixed execute(string $str, bool $fetchSql = false)
  * @method static string parseWhere($where)
  */
 class Db
 {
 
-    private static $instance  = array(); //  数据库连接实例
-    private static $_instance = null; //  当前数据库连接实例
+    /** @var array<string,object> 数据库连接实例 */
+    private static $instance = [];
+
+    /** @var object|null 当前数据库连接实例 */
+    private static $_instance = null;
 
     /**
      * 取得数据库类实例
+     *
      * @static
      * @access public
-     * @param mixed $config 连接配置
-     * @return Object 返回数据库驱动类
+     * @param array|string $config 连接配置（数组）或 DSN 字符串
+     * @return object 返回数据库驱动类
      * @throws DbException
      */
-    public static function getInstance($config = array())
+    public static function getInstance($config = []): object
     {
         $md5 = md5(serialize($config));
         if (!isset(self::$instance[$md5])) {
             // 解析连接参数 支持数组和字符串
             $options = self::parseConfig($config);
-            if($options === false) {
+            if ($options === false) {
                 throw new DbException(L('_NO_DB_DRIVER_'), $config);
             }
             // 兼容mysqli
@@ -63,25 +67,28 @@ class Db
     }
 
     /**
-    * 手动关闭所有已经打开的数据库连接
-    *
-    */
-    static public function closeAll(){
-        foreach(self::$instance as $k=>$v){
-            if(method_exists($v, 'close')){
+     * 手动关闭所有已经打开的数据库连接
+     *
+     * @return void
+     */
+    public static function closeAll(): void
+    {
+        foreach (self::$instance as $k => $v) {
+            if (method_exists($v, 'close')) {
                 $v->close();
             }
-            self::$instance[$k] = NULL;
+            self::$instance[$k] = null;
         }
-        self::$instance = array();
+        self::$instance = [];
     }
 
     /**
      * 数据库连接参数解析
+     *
      * @static
      * @access private
-     * @param mixed $config
-     * @return array
+     * @param array|string $config 配置数组或 DSN 字符串
+     * @return array|false 解析后的配置数组，失败返回 false
      */
     private static function parseConfig($config)
     {
@@ -90,25 +97,25 @@ class Db
                 return self::parseDsn($config);
             }
             $config = array_change_key_case($config);
-            $config = array(
-                'type'        => $config['db_type'],
-                'username'    => $config['db_user'],
-                'password'    => $config['db_pwd'],
-                'hostname'    => $config['db_host'],
-                'hostport'    => $config['db_port'],
-                'database'    => $config['db_name'],
-                'dsn'         => isset($config['db_dsn']) ? $config['db_dsn'] : null,
-                'params'      => isset($config['db_params']) ? $config['db_params'] : null,
-                'charset'     => isset($config['db_charset']) ? $config['db_charset'] : 'utf8',
-                'deploy'      => isset($config['db_deploy_type']) ? $config['db_deploy_type'] : 0,
-                'rw_separate' => isset($config['db_rw_separate']) ? $config['db_rw_separate'] : false,
-                'master_num'  => isset($config['db_master_num']) ? $config['db_master_num'] : 1,
-                'slave_no'    => isset($config['db_slave_no']) ? $config['db_slave_no'] : '',
-                'debug'       => isset($config['db_debug']) ? $config['db_debug'] : APP_DEBUG,
-                'lite'        => isset($config['db_lite']) ? $config['db_lite'] : false,
-            );
+            $config = [
+                'type'        => $config['db_type'] ?? null,
+                'username'    => $config['db_user'] ?? null,
+                'password'    => $config['db_pwd'] ?? null,
+                'hostname'    => $config['db_host'] ?? null,
+                'hostport'    => $config['db_port'] ?? null,
+                'database'    => $config['db_name'] ?? null,
+                'dsn'         => $config['db_dsn'] ?? null,
+                'params'      => $config['db_params'] ?? null,
+                'charset'     => $config['db_charset'] ?? 'utf8',
+                'deploy'      => $config['db_deploy_type'] ?? 0,
+                'rw_separate' => $config['db_rw_separate'] ?? false,
+                'master_num'  => $config['db_master_num'] ?? 1,
+                'slave_no'    => $config['db_slave_no'] ?? '',
+                'debug'       => $config['db_debug'] ?? (defined('APP_DEBUG') ? APP_DEBUG : false),
+                'lite'        => $config['db_lite'] ?? false,
+            ];
         } else {
-            $config = array(
+            $config = [
                 'type'        => C('DB_TYPE'),
                 'username'    => C('DB_USER'),
                 'password'    => C('DB_PWD'),
@@ -122,22 +129,24 @@ class Db
                 'rw_separate' => C('DB_RW_SEPARATE'),
                 'master_num'  => C('DB_MASTER_NUM'),
                 'slave_no'    => C('DB_SLAVE_NO'),
-                'debug'       => C('DB_DEBUG', null, APP_DEBUG),
+                'debug'       => C('DB_DEBUG', null, defined('APP_DEBUG') ? APP_DEBUG : false),
                 'lite'        => C('DB_LITE'),
-            );
+            ];
         }
         return $config;
     }
 
     /**
      * DSN解析
+     *
      * 格式： mysql://username:passwd@localhost:3306/DbName?param1=val1&param2=val2#utf8
+     *
      * @static
      * @access private
-     * @param string $dsnStr
-     * @return array
+     * @param string $dsnStr DSN 字符串
+     * @return array|false 解析后的配置数组，失败返回 false
      */
-    private static function parseDsn($dsnStr)
+    private static function parseDsn(string $dsnStr)
     {
         if (empty($dsnStr)) {
             return false;
@@ -146,36 +155,37 @@ class Db
         if (!$info) {
             return false;
         }
-        $dsn = array(
-            'type'     => $info['scheme'],
-            'username' => isset($info['user']) ? $info['user'] : '',
-            'password' => isset($info['pass']) ? $info['pass'] : '',
-            'hostname' => isset($info['host']) ? $info['host'] : '',
-            'hostport' => isset($info['port']) ? $info['port'] : '',
+        $dsn = [
+            'type'     => $info['scheme'] ?? '',
+            'username' => $info['user'] ?? '',
+            'password' => $info['pass'] ?? '',
+            'hostname' => $info['host'] ?? '',
+            'hostport' => $info['port'] ?? '',
             'database' => isset($info['path']) ? ltrim($info['path'], '/') : '',
-            'charset'  => isset($info['fragment']) ? $info['fragment'] : 'utf8',
-        );
+            'charset'  => $info['fragment'] ?? 'utf8',
+        ];
 
         if (isset($info['query'])) {
             parse_str($info['query'], $dsn['params']);
         } else {
-            $dsn['params'] = array();
+            $dsn['params'] = [];
         }
         return $dsn;
     }
 
     /**
      * 调用驱动类的方法
-     * @param $method
-     * @param $params
+     *
+     * @param string $method 方法名
+     * @param array $params 参数数组
      * @return mixed
      * @throws DbException
      */
-    public static function __callStatic($method, $params)
+    public static function __callStatic(string $method, array $params)
     {
-        if(!is_object(self::$_instance)) {
+        if (!is_object(self::$_instance)) {
             self::getInstance();
         }
-        return call_user_func_array(array(self::$_instance, $method), $params);
+        return call_user_func_array([self::$_instance, $method], $params);
     }
 }

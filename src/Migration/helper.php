@@ -9,8 +9,8 @@
 // | Author: liu21st <liu21st@gmail.com>
 // +----------------------------------------------------------------------
 
-use think\migration\Factory;
-use think\migration\FactoryBuilder;
+use Think\Migration\Factory;
+use Think\Migration\FactoryBuilder;
 
 if (!function_exists('factory')) {
     /**

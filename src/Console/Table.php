@@ -26,7 +26,7 @@ class Table
     protected $header = [];
 
     /**
-     * 头部对齐方式 默认1 ALGIN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
+     * 头部对齐方式 默认1 ALIGN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
      * @var int
      */
     protected $headerAlign = 1;
@@ -38,7 +38,7 @@ class Table
     protected $rows = [];
 
     /**
-     * 单元格对齐方式 默认1 ALGIN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
+     * 单元格对齐方式 默认1 ALIGN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
      * @var int
      */
     protected $cellAlign = 1;
@@ -123,19 +123,19 @@ class Table
      * @param string $str 行首字符串
      * @return void
      */
-    public function setLineHome($str)
+    public function setLineHome(string $str): void
     {
-        $this->lineHome = (string)$str;
+        $this->lineHome = $str;
     }
 
     /**
      * 设置表格头信息 以及对齐方式
      * @access public
      * @param array $header 要输出的Header信息
-     * @param int $align    对齐方式 默认1 ALGIN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
+     * @param int $align    对齐方式 默认1 ALIGN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
      * @return void
      */
-    public function setHeader(array $header, $align = self::ALIGN_LEFT)
+    public function setHeader(array $header, int $align = self::ALIGN_LEFT): void
     {
         $this->header      = $header;
         $this->headerAlign = $align;
@@ -145,33 +145,74 @@ class Table
      * 设置输出表格数据 及对齐方式
      * @access public
      * @param array $rows 要输出的表格数据（二维数组）
-     * @param int $align  对齐方式 默认1 ALGIN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
+     * @param int $align  对齐方式 默认1 ALIGN_LEFT 0 ALIGN_RIGHT 2 ALIGN_CENTER
      * @return void
      */
-    public function setRows(array $rows, $align = self::ALIGN_LEFT)
+    public function setRows(array $rows, $align = self::ALIGN_LEFT): void
     {
         $this->rows      = $rows;
         $this->cellAlign = $align;
         $this->colWidth  = [];
-        $this->checkColWidth($this->header);
-        foreach ($rows as $row) {
-            $this->checkColWidth($row);
+        $this->calculateAllColumnWidths($rows);
+    }
+
+    /**
+     * 批量计算所有行的列宽（优化性能）
+     * @access protected
+     * @param array $rows 所有行数据
+     * @return void
+     */
+    protected function calculateAllColumnWidths(array $rows): void
+    {
+        // 收集所有行数据包括 header
+        $allRows = $rows;
+        if (!empty($this->header)) {
+            array_unshift($allRows, $this->header);
+        }
+
+        // 收集每列的所有单元格内容
+        $columnCells = [];
+        foreach ($allRows as $row) {
+            if (is_array($row)) {
+                foreach ($row as $index => $cell) {
+                    if (!isset($columnCells[$index])) {
+                        $columnCells[$index] = [];
+                    }
+                    $columnCells[$index][] = $cell;
+                }
+            }
+        }
+
+        // 批量计算每列的最大宽度
+        foreach ($columnCells as $index => $cells) {
+            $maxWidth = 0;
+            foreach ($cells as $cell) {
+                $width = 0;
+                if ($cell) {
+                    $width = mb_strwidth(trim(strip_tags($cell)));
+                }
+                if ($width > $maxWidth) {
+                    $maxWidth = $width;
+                }
+            }
+            $this->colWidth[$index] = $maxWidth;
         }
     }
 
     /**
      * 检查列数据的显示宽度
-     * @access public
+     * @access protected
      * @param mixed $row 行数据
      * @return void
      */
-    protected function checkColWidth($row)
+    protected function checkColWidth($row): void
     {
         if (is_array($row)) {
             foreach ($row as $key => $cell) {
                 $cellWidth = 0;
-                if ($cell)
+                if ($cell) {
                     $cellWidth = mb_strwidth(trim(strip_tags($cell)));
+                }
                 if (!isset($this->colWidth[$key]) || $cellWidth > $this->colWidth[$key]) {
                     $this->colWidth[$key] = $cellWidth;
                 }
@@ -182,11 +223,11 @@ class Table
     /**
      * 增加一行表格数据
      * @access public
-     * @param mixed $row  行数据
+     * @param array $row  行数据
      * @param bool $first 是否在开头插入
      * @return void
      */
-    public function addRow($row, $first = false)
+    public function addRow(array $row, bool $first = false): void
     {
         if ($first) {
             array_unshift($this->rows, $row);
@@ -195,6 +236,7 @@ class Table
             $this->rows[] = $row;
         }
 
+        // 使用优化的列宽检查
         $this->checkColWidth($row);
     }
 
@@ -204,7 +246,7 @@ class Table
      * @param string $style 样式名
      * @return void
      */
-    public function setStyle($style)
+    public function setStyle(string $style): void
     {
         $this->style = isset($this->format[$style]) ? $style : 'default';
     }

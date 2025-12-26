@@ -11,8 +11,20 @@
 
 namespace Think\Driver\Messager;
 
+/**
+ * Server酱消息推送驱动
+ *
+ * Server酱是一款简单易用的个人消息推送服务，将消息推送到微信。
+ *
+ * 配置参数：
+ * - send_key: SendKey，从 https://sct.ftqq.com/ 获取
+ *
+ * @package Think\Driver\Messager
+ * @see https://sct.ftqq.com/
+ */
 class ServerChan extends Driver
 {
+    /** @var int 请求超时时间（秒） */
     const TIMEOUT = 33;
 
     /**
@@ -37,13 +49,13 @@ class ServerChan extends Driver
      * @return bool
      * @throws \Exception
      */
-    public function send($content, $subject = '', $data = [], $recipient = null, ...$params)
+    public function send(string $content, string $subject = '', array $data = [], ?string $recipient = null, ...$params): bool
     {
         $this->check($content, $data);
 
         $footer = $this->getFooter();
         if($footer) {
-            $content .= "\n\n" . $content;
+            $content .= "\n\n" . $footer;
         }
 
         $subject = $subject === '' ? mb_substr($content, 0, 12) . '...' : $subject;
@@ -64,9 +76,11 @@ class ServerChan extends Driver
 
             throw new \Exception('ServerChan 推送出错：' . ($resp['message'] ?:'未知原因'));
         } catch (\Exception $e) {
-            E(sprintf('ServerChan 送信失败：<red>%s</red>', $e->getMessage()));
-
-            return false;
+            $this->logError('ServerChan 送信失败', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
     }
 }

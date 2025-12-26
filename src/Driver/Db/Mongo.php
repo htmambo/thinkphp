@@ -455,7 +455,7 @@ class Mongo extends Driver
      */
     public function find($options = array())
     {
-        $options['limit'] = 1;
+        $options['limit'] = DbConstants::DEFAULT_LIMIT;
         $find             = $this->select($options);
         return array_shift($find);
     }

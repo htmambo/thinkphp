@@ -144,7 +144,8 @@ class Local
                 return false;
             }
         } else {
-            exit('no image');
+            $this->error = 'Invalid image file';
+            return false;
         }
     }
 
@@ -167,6 +168,19 @@ class Local
      * @return boolean          保存状态，true-成功，false-失败
      */
     public function save(&$file, $replace = true){
+        // 路径安全验证：防止路径遍历攻击
+        if (strpos($file['savepath'], '..') !== false) {
+            $this->error = 'Invalid save path: path traversal detected';
+            return false;
+        }
+
+        // 文件名安全验证：防止路径分隔符注入
+        if (strpos($file['savename'], '/') !== false ||
+            strpos($file['savename'], '\\') !== false) {
+            $this->error = 'Invalid filename: path separator detected';
+            return false;
+        }
+
         if (I('cutdata')) {
             $filename = $this->config['rootPath'] . '/' . uniqid();
         } else {
@@ -222,7 +236,8 @@ class Local
                 @unlink($src);
                 $img->save($filename);
             } else {
-                exit('no image');
+                $this->error = 'Invalid image file';
+                return false;
             }
         }
         $url         = str_replace($this->config['rootPath'], $this->config['urlpre'], $filename);
@@ -246,7 +261,8 @@ class Local
         }
 
         $oldmask = umask(0);
-        if (mkdir($dir, 0777, true)) {
+        // 使用 0755 权限更安全，允许所有者读写执行，其他用户只读执行
+        if (mkdir($dir, 0755, true)) {
             umask($oldmask);
             return true;
         } else {

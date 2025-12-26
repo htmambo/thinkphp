@@ -108,9 +108,9 @@ class Ask
         $matches    = $autocomplete;
         $numMatches = count($matches);
 
-        $sttyMode = shell_exec('stty -g');
+        $sttyMode = $this->execSttyCommand('stty -g');
 
-        shell_exec('stty -icanon -echo');
+        $this->execSttyCommand('stty -icanon -echo');
 
         while (!feof($inputStream)) {
             $c = fread($inputStream, 1);
@@ -190,7 +190,7 @@ class Ask
             }
         }
 
-        shell_exec(sprintf('stty %s', $sttyMode));
+        $this->execSttyCommand(sprintf('stty %s', $sttyMode));
 
         return $ret;
     }
@@ -200,7 +200,7 @@ class Ask
         if ('\\' === DIRECTORY_SEPARATOR) {
             $exe = __DIR__ . '/../bin/hiddeninput.exe';
 
-            $value = rtrim(shell_exec($exe));
+            $value = rtrim($this->execShellCommand($exe));
             $this->output->writeln('');
 
             if (isset($tmpExe)) {
@@ -211,11 +211,11 @@ class Ask
         }
 
         if ($this->hasSttyAvailable()) {
-            $sttyMode = shell_exec('stty -g');
+            $sttyMode = $this->execSttyCommand('stty -g');
 
-            shell_exec('stty -echo');
+            $this->execSttyCommand('stty -echo');
             $value = fgets($inputStream, 4096);
-            shell_exec(sprintf('stty %s', $sttyMode));
+            $this->execSttyCommand(sprintf('stty %s', $sttyMode));
 
             if (false === $value) {
                 throw new \RuntimeException(L('Aborted'));
@@ -230,7 +230,7 @@ class Ask
         if (false !== $shell = $this->getShell()) {
             $readCmd = $shell === 'csh' ? 'set mypassword = $<' : 'read -r mypassword';
             $command = sprintf("/usr/bin/env %s -c 'stty -echo; %s; stty echo; echo \$mypassword'", $shell, $readCmd);
-            $value   = rtrim(shell_exec($command));
+            $value   = rtrim($this->execShellCommand($command));
             $this->output->writeln('');
 
             return $value;
@@ -253,6 +253,8 @@ class Ask
                 return call_user_func($this->question->getValidator(), $interviewer());
             }
             catch (\Exception $error) {
+                // 验证器抛出异常，保存错误信息以便在下一次迭代中显示
+                // 不在此处理，让循环继续并在外层检查 $error
             }
         }
 
@@ -324,7 +326,8 @@ class Ask
         if (file_exists('/usr/bin/env')) {
             $test = "/usr/bin/env %s -c 'echo OK' 2> /dev/null";
             foreach (['bash', 'zsh', 'ksh', 'csh'] as $sh) {
-                if ('OK' === rtrim(shell_exec(sprintf($test, $sh)))) {
+                $result = $this->execShellCommand(sprintf($test, $sh));
+                if ('OK' === rtrim($result)) {
                     self::$shell = $sh;
                     break;
                 }
@@ -343,5 +346,47 @@ class Ask
         exec('stty 2>&1', $output, $exitcode);
 
         return self::$stty = $exitcode === 0;
+    }
+
+    /**
+     * 安全执行 stty 命令
+     * @param string $command stty 命令
+     * @return string|null 命令输出，失败时返回 null
+     */
+    private function execSttyCommand(string $command): ?string
+    {
+        try {
+            $output = [];
+            $returnCode = 0;
+            @exec($command . ' 2>&1', $output, $returnCode);
+
+            // stty 命令返回 0 或 1 都可能是正常的
+            if ($returnCode <= 1) {
+                return implode("\n", $output);
+            }
+            return null;
+        } catch (\Exception $e) {
+            // 静默失败，返回 null
+            return null;
+        }
+    }
+
+    /**
+     * 安全执行 shell 命令
+     * @param string $command shell 命令
+     * @return string 命令输出
+     * @throws \RuntimeException 当命令执行失败时
+     */
+    private function execShellCommand(string $command): string
+    {
+        $output = [];
+        $returnCode = 0;
+        @exec($command . ' 2>&1', $output, $returnCode);
+
+        if ($returnCode !== 0 && empty($output)) {
+            throw new \RuntimeException("Failed to execute command: {$command}");
+        }
+
+        return implode("\n", $output);
     }
 }

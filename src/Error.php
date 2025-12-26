@@ -144,7 +144,9 @@ class Error
             }
             // 将错误信息托管至 think\exception\ErrorException
             $exception = new ErrorException($errno, $error . $errstr, $errfile, $errline);
-//            throw $exception;
+            // 注意: 此处不抛出异常，仅记录日志，避免警告类错误中断程序执行
+            // 如需将错误转为异常中断，请取消下面的注释
+            // throw $exception;
             self::getExceptionHandler()->report($exception);
         }
     }

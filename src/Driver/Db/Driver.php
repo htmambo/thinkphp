@@ -473,12 +473,80 @@ abstract class Driver
      *
      * @access public
      * @param string $key
-     * @param bool   $strict
+     * @param bool   $strict 是否严格模式（严格验证字段名格式）
      * @return string
+     * @throws \InvalidArgumentException 当字段名格式不合法时抛出
      */
     public function parseKey($key, $strict = false)
     {
+        // 安全处理：防止 SQL 注入
+        if (is_string($key)) {
+            // 处理带表名的字段（如 table.field）
+            if (strpos($key, '.') !== false) {
+                $parts = explode('.', $key);
+                if (count($parts) > 2) {
+                    // 不支持多于一个点的格式
+                    throw new \InvalidArgumentException('Invalid field name format');
+                }
+                $result = '';
+                foreach ($parts as $i => $part) {
+                    // 处理 AS 别名
+                    if (strtoupper(trim($part)) === 'AS') {
+                        $result .= ' AS ';
+                        continue;
+                    }
+                    // 处理字段名或表名
+                    if ($strict && !preg_match(DbConstants::PATTERN_IDENTIFIER, $part)) {
+                        throw new \InvalidArgumentException("Invalid identifier: {$part}");
+                    }
+                    // 如果包含空格或特殊字符，需要加引号
+                    if (strpos($part, ' ') !== false || preg_match('/[^a-zA-Z0-9_]/', $part)) {
+                        $result .= $this->quoteIdentifier($part);
+                    } else {
+                        $result .= $part;
+                    }
+                    if ($i < count($parts) - 1) {
+                        $result .= '.';
+                    }
+                }
+                return $result;
+            }
+
+            // 严格模式下验证字段名格式
+            if ($strict && !empty($key) && !preg_match(DbConstants::PATTERN_IDENTIFIER, $key)) {
+                throw new \InvalidArgumentException("Invalid field name: {$key}");
+            }
+
+            // 处理 AS 别名
+            if (strtoupper(trim($key)) === 'AS') {
+                return ' AS ';
+            }
+
+            // 如果包含空格或特殊字符，需要加引号
+            if (strpos($key, ' ') !== false || preg_match('/[^a-zA-Z0-9_]/', $key)) {
+                return $this->quoteIdentifier($key);
+            }
+        }
+
         return $key;
+    }
+
+    /**
+     * 给标识符加引号（防止关键字冲突）
+     *
+     * @param string $identifier 标识符
+     * @return string 加引号后的标识符
+     */
+    protected function quoteIdentifier($identifier)
+    {
+        $identifier = trim($identifier);
+        // 如果已经包含反引号，直接返回
+        if (strpos($identifier, '`') !== false) {
+            return $identifier;
+        }
+        // 去除已存在的反引号并重新添加
+        $identifier = trim($identifier, '`');
+        return '`' . str_replace('`', '``', $identifier) . '`';
     }
 
     /**
@@ -513,9 +581,10 @@ abstract class Driver
      *
      * @access protected
      * @param mixed $fields
+     * @param string|null $tableName 当前表名（用于 JOIN 查询时自动加别名）
      * @return string
      */
-    protected function parseField($fields)
+    protected function parseField($fields, $tableName = null)
     {
         if (is_string($fields) && '' !== $fields) {
             $fields = explode(',', $fields);
@@ -523,7 +592,7 @@ abstract class Driver
         if (is_array($fields)) {
             // 完善数组方式传字段名的支持
             // 支持 'field1'=>'field2' 这样的字段别名定义
-            $array = array();
+            $array = [];
             foreach ($fields as $key => $field) {
                 if (!is_numeric($key)) {
                     $array[] = $this->parseKey($key) . ' AS ' . $this->parseKey($field);
@@ -537,8 +606,14 @@ abstract class Driver
         }
         else {
             $fieldsStr = '*';
+
+            // 如果是查询所有字段，并且有表名，则使用 表名.* 的格式
+            // 这样可以在 JOIN 查询时避免字段冲突
+            if ($tableName) {
+                $fieldsStr = $this->parseKey($tableName) . '.*';
+            }
         }
-        //TODO 如果是查询全部字段，并且是join的方式，那么就把要查的表加个别名，以免字段被覆盖
+
         return $fieldsStr;
     }
 
@@ -609,7 +684,13 @@ abstract class Driver
                 else {
                     // 查询字段的安全过滤
                      if(!preg_match('/^[A-Z_\|\&\-.a-z0-9\(\)\,]+$/',trim($key))){
-                         throw new DbException(L('_EXPRESS_ERROR_').':'.$key);
+                         throw new DbException(
+                             L('_EXPRESS_ERROR_') . ": Invalid expression field: {$key}",
+                             ['field' => $key],
+                             $this->queryStr,
+                             'parseWhere',
+                             DbConstants::ERROR_PARSE_FAILED
+                         );
                      }
                     // 多条件支持
                     $multi = is_array($val) && isset($val['_multi']);
@@ -698,7 +779,13 @@ abstract class Driver
                     $whereStr .= $key . ' ' . $this->exp[$exp] . ' ' . $this->parseValue($data[0]) . ' AND ' . $this->parseValue($data[1]);
                 }
                 else {
-                    throw new DbException(L('_EXPRESS_ERROR_') . ':' . $val[0]);
+                    throw new DbException(
+                        L('_EXPRESS_ERROR_') . ": Invalid expression operator: {$val[0]}",
+                        ['operator' => $val[0], 'field' => $key],
+                        $this->queryStr,
+                        'parseWhereItem',
+                        DbConstants::ERROR_PARSE_FAILED
+                    );
                 }
             }
             else {
@@ -1189,12 +1276,30 @@ abstract class Driver
      */
     public function parseSql($sql, $options = array())
     {
+        // 提取表名用于 JOIN 查询时的字段别名处理
+        $tableName = null;
+        if (!empty($options['join']) && empty($options['field'])) {
+            // 当有 JOIN 且未指定字段时，需要获取主表名
+            if (is_array($options['table'])) {
+                // 获取主表名（第一个元素）
+                $tables = array_keys($options['table']);
+                $tableName = is_numeric($tables[0]) ? $options['table'][$tables[0]] : $tables[0];
+            } elseif (is_string($options['table'])) {
+                // 从字符串中提取表名
+                if (strpos($options['table'], ',') === false) {
+                    // 单表，提取表名（去掉可能的别名）
+                    $parts = preg_split('/\s+/', trim($options['table']));
+                    $tableName = $parts[0];
+                }
+            }
+        }
+
         $sql = str_replace(
             array('%TABLE%', '%DISTINCT%', '%FIELD%', '%JOIN%', '%WHERE%', '%GROUP%', '%HAVING%', '%ORDER%', '%LIMIT%', '%UNION%', '%LOCK%', '%COMMENT%', '%FORCE%'),
             array(
                 $this->parseTable($options['table']),
                 $this->parseDistinct(isset($options['distinct']) ? $options['distinct'] : false),
-                $this->parseField(!empty($options['field']) ? $options['field'] : '*'),
+                $this->parseField(!empty($options['field']) ? $options['field'] : '*', $tableName),
                 $this->parseJoin(!empty($options['join']) ? $options['join'] : ''),
                 $this->parseWhere(!empty($options['where']) ? $options['where'] : ''),
                 $this->parseGroup(!empty($options['group']) ? $options['group'] : ''),
@@ -1250,12 +1355,40 @@ abstract class Driver
     /**
      * SQL指令安全过滤
      *
+     * 使用 PDO quote 方法或 MySQL real_escape_string 进行安全转义
+     *
      * @access public
      * @param string $str SQL字符串
      * @return string
      */
     public function escapeString($str)
     {
+        // 优先使用当前连接的 PDO quote 方法（更安全）
+        if ($this->_linkID instanceof \PDO) {
+            try {
+                $quoted = $this->_linkID->quote($str);
+                // quote 方法会包含引号，我们只需要转义后的内容
+                if ($quoted !== false) {
+                    return substr($quoted, 1, -1);
+                }
+            } catch (\PDOException $e) {
+                // PDO quote 失败，回退到其他方法
+            }
+        }
+
+        // 回退方案：使用 mysqli_real_escape_string
+        if (function_exists('mysqli_real_escape_string')) {
+            // 尝试从 linkID 数组中获取主库连接
+            if (isset($this->linkID[0]) && $this->linkID[0] instanceof \mysqli) {
+                return mysqli_real_escape_string($this->linkID[0], $str);
+            }
+        }
+
+        // 最后的回退方案：使用 addslashes（不推荐，但比没有好）
+        // 记录警告日志
+        if (function_exists('error_log')) {
+            error_log('WARNING: Using addslashes for string escaping, not recommended for production');
+        }
         return addslashes($str);
     }
 

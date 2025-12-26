@@ -11,28 +11,46 @@
 
 namespace Think\Driver\Messager;
 
+/**
+ * 微信模板消息推送驱动
+ *
+ * 通过微信公众号模板消息接口向用户推送模板消息。
+ * 支持模板变量替换、多用户批量推送、自定义跳转链接等功能。
+ *
+ * 配置参数：
+ * - appid: 微信公众号 AppID
+ * - secret: 微信公众号 AppSecret
+ * - tplid: 模板 ID
+ * - tplset: 模板变量映射数组
+ * - users: 接收用户 openid 列表，多个用 | 分隔
+ *
+ * @package Think\Driver\Messager
+ */
 class WeChatTpl extends Driver
 {
     /**
-     * @var string 微信APPID
+     * @var string 微信公众号 AppID
      */
     protected $appid;
-    /**
-     * @var string 微信密钥
-     */
-    protected $secrect;
 
+    /**
+     * @var string 微信公众号 AppSecret
+     */
+    protected $secret;
+
+    /** @var int 请求超时时间（秒） */
     const TIMEOUT = 33;
 
     /**
-     * @var string 缓存 access_token 的文件
+     * @var string|null access_token 缓存文件路径（已弃用，改用缓存系统）
+     * @deprecated
      */
     protected $accessTokenFile;
 
     protected function _initialize()
     {
         $this->appid = $this->config['appid'];
-        $this->secrect = $this->config['secret'];
+        $this->secret = $this->config['secret'];
     }
 
     /**
@@ -42,7 +60,7 @@ class WeChatTpl extends Driver
      * @return mixed 获取到的token
      * @throws \Think\Exception
      */
-    public function getToken($force = false)
+    public function getToken(bool $force = false): string
     {
         $key   = 'wechat_token_' . $this->appid;
         if(!$force) {
@@ -55,13 +73,15 @@ class WeChatTpl extends Driver
         $query = [
             'grant_type'=>'client_credential',
             'appid' => $this->appid,
-            'secret' => $this->secrect
+            'secret' => $this->secret
         ];
         $data = $this->curl($url, $query);
-        $data         = json_decode(stripslashes($data));
-        $data         = json_decode(json_encode($data), true);
+        $data = json_decode($data, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('JSON decode failed: ' . json_last_error_msg());
+        }
         if(!isset($data['access_token'])) {
-            E('获取AccessToken时出错：' . $data['errmsg']);
+            throw new \RuntimeException('获取AccessToken时出错：' . ($data['errmsg'] ?? '未知错误'));
         }
         $token = $data['access_token'];
         S($key, $token, $data['expires_in'] - 100);
@@ -87,7 +107,7 @@ class WeChatTpl extends Driver
      * @return bool
      * @throws \Exception
      */
-    public function send($content, $subject = '', $data = [], $recipient = null, ...$params)
+    public function send(string $content, string $subject = '', array $data = [], ?string $recipient = null, ...$params): bool
     {
         $this->check($content, $data);
         if(!isset($data['url'])) {
@@ -124,12 +144,15 @@ class WeChatTpl extends Driver
                 $this->doSend($openid, $data);
             }
         } catch (\Exception $e) {
-            E(sprintf('微信模板消息送信失败：<red>%s</red>', $e->getMessage()));
-            return false;
+            $this->logError('微信模板消息送信失败', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
     }
 
-    public function doSend($touser, $data, $topcolor = '#7B68EE')
+    public function doSend(string $touser, array $data, string $topcolor = '#7B68EE'): ?string
     {
         $url = $data['url'];
         if(isset($data['color'])) {

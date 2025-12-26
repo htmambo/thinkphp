@@ -11,27 +11,42 @@
 
 namespace Think\Driver\Messager;
 
+/**
+ * Telegram Bot 消息推送驱动
+ *
+ * 通过 Telegram Bot API 发送消息，支持 MarkdownV2 格式。
+ * 自动转义特殊字符，支持自定义 API 服务器地址。
+ *
+ * 配置参数：
+ * - token: Bot Token，从 @BotFather 获取
+ * - chat_id: 默认接收者的 Chat ID
+ * - host: 自定义 API 服务器地址（可选），默认 api.telegram.org
+ *
+ * @package Think\Driver\Messager
+ * @see https://core.telegram.org/bots/api
+ */
 class TelegramBot extends Driver
 {
+    /** @var int 请求超时时间（秒） */
     const TIMEOUT = 33;
 
     /**
-     * @var string chat_id
+     * @var string 默认 Chat ID
      */
-    protected $chatID;
+    protected $chatId;
 
     /**
-     * @var string 机器人令牌
+     * @var string Bot Token
      */
     protected $token;
 
     /**
-     * @var string Telegram 主机地址
+     * @var string Telegram API 主机地址
      */
     protected $host;
-    protected function _initialize()
+    protected function _initialize(): void
     {
-        $this->chatID = $this->config['chat_id'];
+        $this->chatId = $this->config['chat_id'];
         $this->token = $this->config['token'];
         $this->host = $this->getTelegramHost();
     }
@@ -119,7 +134,7 @@ class TelegramBot extends Driver
      *
      * @return bool
      */
-    public function send($content, $subject = '', $data = [], $recipient = null, ...$params)
+    public function send(string $content, string $subject = '', array $data = [], ?string $recipient = null, ...$params): bool
     {
         $this->check($content, $data);
 
@@ -156,7 +171,7 @@ class TelegramBot extends Driver
             $url = sprintf('https://%s/bot%s/sendMessage', $this->host, $this->token);
             $data = [
                 'form_params' => [
-                    'chat_id' => $recipient ?: $this->chatID,
+                    'chat_id' => $recipient ?: $this->chatId,
                     'text' => $content, // Text of the message to be sent, 1-4096 characters after entities parsing
                     'parse_mode' => $isMarkdown ? 'MarkdownV2' : 'HTML',
                     'disable_web_page_preview' => true,
@@ -168,8 +183,11 @@ class TelegramBot extends Driver
 
             return $resp['ok'] ?: false;
         } catch (\Exception $e) {
-            E(L('TelegramBot 送信失败：<red>{$message}</red>', ['message' => $e->getMessage()]));
-            return false;
+            $this->logError('TelegramBot 送信失败', [
+                'message' => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
+            throw $e;
         }
     }
 }
