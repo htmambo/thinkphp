@@ -283,14 +283,24 @@ class Descriptor
 
                 foreach ($namespace['commands'] as $name) {
                     $this->writeText("\n");
-                    $spacingWidth = $width - strlen($name);
+
+                    $spacingWidth = $width - strlen($name) + 2;
+
+                    $command = $description->getCommand($name);
+                    $desc = $command->getDescription() ?? '';
+
+                    $desc = $this->output->splitStringByWidth($desc, -$width - 4, false);
+                    $desc = implode(PHP_EOL, $desc);
+
                     $this->writeText(
                         sprintf(
                             "  <info>%s</info>%s%s",
                             $name,
                             str_repeat(' ', max(1, $spacingWidth)),
-                            $description->getCommand($name)->getDescription()
-                        ), $options);
+                            preg_replace('/\s*\R\s*/u', "\n" . str_repeat(' ', $width + 4), $desc)
+                        ),
+                        $options
+                    );
                 }
             }
 
