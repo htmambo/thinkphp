@@ -165,15 +165,44 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
      */
     public function getAlias(string $abstract): string
     {
-        if (isset($this->bind[$abstract])) {
-            $bind = $this->bind[$abstract];
+        return $this->getAliasRecursive($abstract, 0, []);
+    }
 
-            if (is_string($bind)) {
-                return $this->getAlias($bind);
-            }
+    /**
+     * getAlias 的递归实现：深度限制 + 循环检测（无 static 状态）
+     *
+     * @param string $abstract
+     * @param int $depth
+     * @param array<int, string> $path
+     * @return string
+     */
+    private function getAliasRecursive(string $abstract, int $depth, array $path): string
+    {
+        $maxDepth = 10;
+        if ($depth > $maxDepth) {
+            throw new InvalidArgumentException('Alias recursion depth exceeded (max: ' . $maxDepth . '): ' . $abstract);
         }
 
-        return $abstract;
+        if (!isset($this->bind[$abstract])) {
+            return $abstract;
+        }
+
+        $bind = $this->bind[$abstract];
+        if (!is_string($bind)) {
+            return $abstract;
+        }
+
+        if ($bind === $abstract) {
+            throw new InvalidArgumentException('Circular alias detected: ' . $abstract . ' references itself');
+        }
+
+        if (in_array($bind, $path, true)) {
+            $chain = implode(' -> ', array_merge($path, [$abstract, $bind]));
+            throw new InvalidArgumentException('Circular alias reference detected: ' . $chain);
+        }
+
+        $path[] = $abstract;
+        return $this->getAliasRecursive($bind, $depth + 1, $path);
     }
 
     /**

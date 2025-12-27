@@ -432,7 +432,7 @@ class Model
     }
 
     // 写入数据前的回调方法 包括新增和更新
-    protected function _before_write(&$data): void
+    protected function _before_write(&$data)
     {
     }
 
@@ -521,10 +521,10 @@ class Model
     }
 
     // 插入数据前的回调方法
-    protected function _before_insert(&$data, $options): void
+    protected function _before_insert(&$data, $options)
     {
     }
-    protected function _before_insert_all(&$datas, $options): void {}
+    protected function _before_insert_all(&$datas, $options) {}
 
     // 插入成功后的回调方法
     protected function _after_insert($data, $options)
@@ -663,12 +663,12 @@ class Model
     }
 
     // 更新数据前的回调方法
-    protected function _before_update(&$data, $options): void
+    protected function _before_update(&$data, $options)
     {
     }
 
     // 更新成功后的回调方法
-    protected function _after_update($data, $options): void
+    protected function _after_update($data, $options)
     {
     }
 
@@ -748,12 +748,12 @@ class Model
     }
 
     // 删除数据前的回调方法
-    protected function _before_delete($options): void
+    protected function _before_delete($options)
     {
     }
 
     // 删除成功后的回调方法
-    protected function _after_delete($data, $options): void
+    protected function _after_delete($data, $options)
     {
     }
 
@@ -918,7 +918,7 @@ class Model
     }
 
     // 表达式过滤回调方法
-    protected function _options_filter(&$options): void
+    protected function _options_filter(&$options)
     {
     }
 
@@ -1919,7 +1919,7 @@ class Model
     }
 
     // 数据库切换后回调方法
-    protected function _after_db(): void
+    protected function _after_db()
     {
     }
 

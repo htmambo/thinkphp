@@ -11,7 +11,6 @@
 // +----------------------------------------------------------------------
 namespace Think;
 
-use http\Exception\RuntimeException;
 use Think\Helper\DocParser;
 use Think\Exception\ErrorException;
 /**
@@ -23,6 +22,41 @@ class App
      * @var DocParser
      */
     static $parser = false;
+
+    /**
+     * 检测当前请求是否为AJAX请求
+     *
+     * @return bool 如果是AJAX请求返回true，否则返回false
+     */
+    private static function isAjaxRequest(): bool
+    {
+        // 1. 检查X-Requested-With头（最常用）
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+            $requestedWith = strtolower($_SERVER['HTTP_X_REQUESTED_WITH']);
+            if ($requestedWith === 'xmlhttprequest') {
+                return true;
+            }
+        }
+
+        // 2. 检查Accept头（JSON请求通常也是AJAX）
+        if (isset($_SERVER['HTTP_ACCEPT'])) {
+            $accept = strtolower($_SERVER['HTTP_ACCEPT']);
+            if (strpos($accept, 'application/json') !== false) {
+                return true;
+            }
+        }
+
+        // 3. 检查AJAX提交参数（用于不支持header的环境）
+        $ajaxParam = C('VAR_AJAX_SUBMIT');
+        if ($ajaxParam) {
+            if (!empty($_POST[$ajaxParam]) || !empty($_GET[$ajaxParam])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * 应用程序初始化
      *
@@ -32,8 +66,8 @@ class App
      */
     public static function init()
     {
-        // 提前判断
-        define('IS_AJAX', isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest' || isset($_SERVER['HTTP_ACCEPT']) && strpos(strtolower($_SERVER['HTTP_ACCEPT']), 'application/json') !== false || !empty($_POST[C('VAR_AJAX_SUBMIT')]) || !empty($_GET[C('VAR_AJAX_SUBMIT')]));
+        // 使用重构后的AJAX检测方法
+        define('IS_AJAX', self::isAjaxRequest());
         //检查一下
         $allow = C('MODULE_ALLOW_LIST');
         $deny = (array) C('MODULE_DENY_LIST');

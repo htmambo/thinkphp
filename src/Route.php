@@ -22,6 +22,38 @@ class Route
     public const ROUTER_ARG_OPTION   = 2;                //可选变量
 
     public const ROUTER_CACHE_KEY = 'url_route_rules[MODULE_NAME]';
+
+    /**
+     * 验证重定向URL是否安全（仅允许相对路径，拒绝 CRLF 注入）
+     *
+     * @param string $url
+     * @return bool
+     */
+    private static function isValidRedirectUrl($url)
+    {
+        if (!is_string($url) || $url === '') {
+            return false;
+        }
+
+        // CRLF 防护：避免 header 注入
+        if (strpos($url, "\r") !== false || strpos($url, "\n") !== false) {
+            return false;
+        }
+
+        // 仅允许以 / 开头的相对路径，拒绝 // 或 /\（协议相对或歧义路径）
+        if (strpos($url, '/') !== 0) {
+            return false;
+        }
+        if (strpos($url, '//') === 0) {
+            return false;
+        }
+        if (isset($url[1]) && ($url[1] === '/' || $url[1] === '\\')) {
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * 路由检测
      *
@@ -105,6 +137,9 @@ class Route
                         }
                         // 重定向
                         if ('/' == substr($route[0], 0, 1)) {
+                            if (!self::isValidRedirectUrl($route[0])) {
+                                throw new \Exception('Invalid redirect URL');
+                            }
                             header("Location: $route[0]", true, $route[1]);
                             exit;
                         } else {

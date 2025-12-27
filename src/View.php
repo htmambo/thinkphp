@@ -104,7 +104,7 @@ class View
         if(C('HTTP_CACHE_CONTROL')) {
             header('Cache-control: '.C('HTTP_CACHE_CONTROL'));  // 页面缓存控制
         }
-        header('Conent-Length: '.strlen($content));
+        header('Content-Length: '.strlen($content));
         header('X-Powered-By:imzhp.com');
         // 输出模板文件
         echo $content;

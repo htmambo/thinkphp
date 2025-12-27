@@ -129,17 +129,17 @@ trait Form
             $field = array_shift($arguments);
 
             $element = new $className($field);
-            if($arguments) {
+            if ($arguments) {
                 $label = array_shift($arguments);
-                $element->label($label?:'');
+                $element->label($label ?: '');
             }
             if (is_string($field) && $this->data && isset($this->data[$field])) {
                 $element->value($this->data[$field]);
             }
             // 后面再优化
             $options = array_shift($arguments);
-            if($options) {
-                foreach($options as $k=>$v) {
+            if ($options) {
+                foreach ($options as $k => $v) {
                     $element->$k($v);
                 }
             }
@@ -165,6 +165,7 @@ trait Form
         $view->assign($this->render());
         $tplPath = dirname(dirname(__FILE__)) . '/View/';
         $view->assign('uitpl', $tplPath . $this->ui . '.html');
+        echo $tplPath . $this->ui . '.html';
         $tpl = $tplPath . 'form.html';
         return $view->display($this->view ?: $tpl);
     }
@@ -185,10 +186,10 @@ trait Form
                     [
                         'value' => '提交',
                         'type' => 'submit',
-                        'lay-submit' => isset($this->options['submit'])?$this->options['submit']:'',
-                        'lay-filter' => isset($this->options['filter'])?$this->options['filter']:''
+                        'lay-submit' => isset($this->options['submit']) ? $this->options['submit'] : '',
+                        'lay-filter' => isset($this->options['filter']) ? $this->options['filter'] : ''
                     ]
-                          ]
+                ]
             ]
         );
     }
@@ -501,5 +502,4 @@ trait Form
 
         return $_SESSION['_csrf_token'];
     }
-
 }

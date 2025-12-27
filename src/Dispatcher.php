@@ -20,6 +20,43 @@ class Dispatcher
 {
 
     /**
+     * 验证HTTP Host头
+     *
+     * @param string $host 要验证的主机名
+     * @return bool 是否为有效的主机名
+     */
+    private static function validateHost($host)
+    {
+        if (empty($host)) {
+            return false;
+        }
+
+        // 1. 检查配置的允许域名列表
+        $allowedHosts = C('ALLOWED_HOSTS');
+        if (!empty($allowedHosts)) {
+            if (is_array($allowedHosts) && in_array($host, $allowedHosts, true)) {
+                return true;
+            }
+            // 如果配置了白名单但不在列表中，拒绝
+            return false;
+        }
+
+        // 2. 验证域名格式（RFC 1123）
+        // 允许: 字母、数字、连字符、点号
+        // 不允许: 特殊字符、空格等
+        if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/', $host)) {
+            return false;
+        }
+
+        // 3. 检查长度限制
+        if (strlen($host) > 253) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * URL映射到控制器
      *
      * @access public
@@ -40,7 +77,7 @@ class Dispatcher
         // 开启子域名部署
         if (C('APP_SUB_DOMAIN_DEPLOY')) {
             $rules = C('APP_SUB_DOMAIN_RULES');
-            if (isset($rules[$_SERVER['HTTP_HOST']])) {
+            if (isset($_SERVER['HTTP_HOST']) && self::validateHost($_SERVER['HTTP_HOST']) && isset($rules[$_SERVER['HTTP_HOST']])) {
                 // 完整域名或者IP配置
                 define('APP_DOMAIN', $_SERVER['HTTP_HOST']); // 当前完整域名
                 $rule = $rules[APP_DOMAIN];
