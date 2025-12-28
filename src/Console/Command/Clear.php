@@ -61,33 +61,107 @@ class Clear extends Command
         }
 
         $rmdir = (bool)$input->getOption('dir');
+        $hasError = false;
         foreach ($paths as $path) {
-            $this->clear(rtrim($root . $path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR, $rmdir);
+            $fullPath = rtrim($root . $path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            if (!$this->clear($fullPath, $rmdir)) {
+                $hasError = true;
+            }
+        }
+        if ($hasError) {
+            $output->writeln("<error>部分文件清除失败</error>");
+            return 1;
         }
         $output->writeln("<info>清除成功</info>");
+        return 0;
     }
 
+    /**
+     * 清除指定路径下的文件
+     *
+     * @param string $path 要清除的路径
+     * @param bool $rmdir 是否删除空目录
+     * @return bool 是否成功
+     */
     protected function clear($path, $rmdir)
     {
-        $this->output->writeln('清除 <comment>' . $path . '</comment>下的所有文件');
+        // 获取 Runtime 根目录的真实路径
+        $runtimeRoot = realpath(C('RUNTIME_PATH'));
+        if ($runtimeRoot === false) {
+            $this->output->error('Runtime 路径无效，无法执行清理');
+            return false;
+        }
+
+        // 获取目标路径的真实路径
+        $targetPath = realpath($path);
+        if ($targetPath === false) {
+            // 路径不存在，跳过
+            if (Output::VERBOSITY_VERBOSE <= $this->output->getVerbosity()) {
+                $this->output->writeln('跳过不存在的路径 <comment>' . $path . '</comment>');
+            }
+            return true;
+        }
+
+        // 规范化路径并验证是否在 Runtime 目录下
+        $runtimeRoot = rtrim($runtimeRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        $targetPath  = rtrim($targetPath, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+        if (strpos($targetPath, $runtimeRoot) !== 0) {
+            $this->output->error('非法路径：仅允许清理 Runtime 目录下的文件');
+            $this->output->writeln('尝试访问的路径: <comment>' . $targetPath . '</comment>');
+            $this->output->writeln('允许的根路径: <info>' . $runtimeRoot . '</info>');
+            return false;
+        }
+
+        // 使用验证后的路径
+        $path = $targetPath;
+        $this->output->writeln('清除 <comment>' . $path . '</comment> 下的所有文件');
         $files = is_dir($path) ? scandir($path) : [];
 
         foreach ($files as $file) {
-            if ('.' != $file && '..' != $file && is_dir($path . $file)) {
-                array_map('unlink', glob($path . $file . DIRECTORY_SEPARATOR . '*.*'));
+            $filePath = $path . $file;
+
+            // 跳过 . 和 ..
+            if ('.' === $file || '..' === $file) {
+                continue;
+            }
+
+            // 检查并跳过符号链接，防止删除 Runtime 目录外的文件
+            if (is_link($filePath)) {
+                if (Output::VERBOSITY_VERBOSE <= $this->output->getVerbosity()) {
+                    $this->output->writeln('跳过符号链接 <comment>' . $filePath . '</comment>');
+                }
+                continue;
+            }
+
+            // 处理目录
+            if (is_dir($filePath)) {
+                // 递归验证子目录路径
+                $realSubPath = realpath($filePath);
+                if ($realSubPath && strpos($realSubPath, $runtimeRoot) !== 0) {
+                    $this->output->error('发现非法子目录，跳过: <comment>' . $filePath . '</comment>');
+                    continue;
+                }
+
+                // 删除目录下的文件
+                array_map('unlink', glob($filePath . DIRECTORY_SEPARATOR . '*.*'));
+
                 if ($rmdir) {
                     if (Output::VERBOSITY_VERBOSE <= $this->output->getVerbosity()) {
-                        $this->output->writeln('尝试清除 <comment>' . $path . $file . '</comment> 如果它为空的话');
+                        $this->output->writeln('尝试清除 <comment>' . $filePath . '</comment> 如果它为空的话');
                     }
-                    rmdir($path . $file);
+                    rmdir($filePath);
                 }
             }
-            elseif ('.gitignore' != $file && is_file($path . $file)) {
+            // 处理文件（排除 .gitignore）
+            elseif ('.gitignore' !== $file && is_file($filePath)) {
                 if (Output::VERBOSITY_VERBOSE <= $this->output->getVerbosity()) {
-                    $this->output->writeln('删除 <comment>' . $path . $file . '</comment>');
+                    $this->output->writeln('删除 <comment>' . $filePath . '</comment>');
                 }
-                unlink($path . $file);
+                unlink($filePath);
             }
         }
+
+        return true;
     }
 }

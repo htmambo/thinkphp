@@ -11,66 +11,11 @@
 
 namespace Think\Console\Command;
 
-use Think\Console\Command;
-use Think\Console\Input;
-use Think\Console\Input\Argument as InputArgument;
-use Think\Console\Input\Definition as InputDefinition;
-use Think\Console\Input\Option as InputOption;
-use Think\Console\Output;
-
-class Lists extends Command
+/**
+ * @deprecated 使用 ListCommand 代替
+ * @see ListCommand
+ */
+class Lists extends ListCommand
 {
-    /**
-     * {@inheritdoc}
-     */
-    protected function configure()
-    {
-        $this->setName('list')
-            ->setDefinition($this->createDefinition())
-            ->setDescription(L('Lists commands'))
-            ->setHelp(<<<EOF
-The <info>%command.name%</info> command lists all commands:
-
-  <info>php %command.full_name%</info>
-
-You can also display the commands for a specific namespace:
-
-  <info>php %command.full_name% test</info>
-
-It's also possible to get raw list of commands (useful for embedding command runner):
-
-  <info>php %command.full_name% --raw</info>
-EOF
-            );
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getNativeDefinition()
-    {
-        return $this->createDefinition();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function execute(Input $input, Output $output)
-    {
-        $output->describe($this->getConsole(), [
-            'raw_text' => $input->getOption('raw'),
-            'namespace' => $input->getArgument('namespace'),
-        ]);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    private function createDefinition()
-    {
-        return new InputDefinition([
-            new InputArgument('namespace', InputArgument::OPTIONAL, 'The namespace name'),
-            new InputOption('raw', null, InputOption::VALUE_NONE, 'To output raw command list'),
-        ]);
-    }
+    // 向后兼容，所有实现继承自 ListCommand
 }

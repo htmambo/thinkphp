@@ -58,16 +58,26 @@ class RunServer extends Command
         $port = $input->getOption('port');
         $root = $input->getOption('root');
 
+        // 规范化路径
+        $rootDir = rtrim($root, DIRECTORY_SEPARATOR);
+        $router  = $rootDir . DIRECTORY_SEPARATOR . 'router.php';
+
+        // 用于进程查询的标识（不含引号，用于匹配 ps 输出）
+        $processKey = "{$php} -S {$host}:{$port} -t {$rootDir} {$router}";
+
+        // 用于执行的安全命令（含引号，防止命令注入）
         $this->command = sprintf(
             '%s -S %s:%d -t %s %s',
-            $php,
-            $host,
-            $port,
-            strpos(' ', $root) !== false ? escapeshellarg($root) : $root,
-            (strpos(' ', $root) !== false ? escapeshellarg($root) : $root) . DIRECTORY_SEPARATOR . 'router.php'
+            escapeshellcmd($php),
+            escapeshellarg($host),
+            (int)$port,
+            escapeshellarg($rootDir),
+            escapeshellarg($router)
         );
+
         $action = $input->hasOption('daemon') ? 'listen' : $input->getArgument('action');
-        $result = $this->process->query($this->command);
+        // 使用 processKey 进行查询，而不是使用带引号的 command
+        $result = $this->process->query($processKey);
         if($action === 'stop') {
             if(count($result) > 0) {
                 $this->process->close(intval($result[0]['pid']));

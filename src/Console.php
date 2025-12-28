@@ -42,7 +42,7 @@ class Console
 
     private static $defaultCommands = [
         'help' => "Think\\Console\\Command\\Help",
-        'lists' => "Think\\Console\\Command\\Lists",
+        'list' => "Think\\Console\\Command\\ListCommand",
         'build' => "Think\\Console\\Command\\Build",
         'clear' => "Think\\Console\\Command\\Clear",
         'queue' => "Think\\Console\\Command\\Queue",
@@ -188,7 +188,7 @@ class Console
                 $otherCmds = array_merge($otherCmds, $tmp);
             }
         }
-        array_unique($otherCmds);
+        $otherCmds = array_unique($otherCmds);
         foreach($otherCmds as $cmd) {
             $tmp = strtolower($cmd);
             $tmp = explode('\\', $tmp);
@@ -412,12 +412,29 @@ class Console
     /**
      * 注册一个指令 （便于动态创建指令）
      * @access public
-     * @param string $name 指令名
-     * @return Command
+     * @param mixed  $command 指令对象/类名/指令名
+     * @param string $name    指令名(别名) 留空则自动获取
+     * @return Command|null
      */
-    public function register($name)
+    public function register($command, $name = '')
     {
-        return $this->add(new Command($name));
+        if ($command instanceof Command) {
+            $registered = $this->add($command, '');
+        }
+        elseif (is_string($command) && strpos($command, '\\') !== false) {
+            // 类名字符串
+            $registered = $this->add($command, '');
+        }
+        else {
+            // 命令名字符串
+            $registered = $this->add(new Command((string)$command), '');
+        }
+
+        if ($name && $registered) {
+            $this->commands[$name] = $registered;
+        }
+
+        return $registered;
     }
 
     /**

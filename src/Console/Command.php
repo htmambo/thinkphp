@@ -169,6 +169,8 @@ class Command
             &&
             get_class($this) !== 'Think\\Console\\Command\\Lists'
             &&
+            get_class($this) !== 'Think\\Console\\Command\\ListCommand'
+            &&
             false === $input->hasParameterOption(['--version', '-V'])
         ) {
             $output->writeln($this->getConsole()->getLongVersion());
