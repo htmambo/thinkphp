@@ -18,6 +18,7 @@ use ArrayIterator;
 use Closure;
 use Countable;
 use IteratorAggregate;
+use Psr\Container\ContainerInterface as PsrContainerInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
@@ -27,9 +28,10 @@ use Think\Exception\ClassNotFoundException;
 use Think\Exception\FuncNotFoundException;
 use Think\Exception\InvalidArgumentException;
 use Think\Helper\Str;
+use Think\Support\ContextualBindingBuilder;
 use Traversable;
 
-class Container implements ArrayAccess, IteratorAggregate, Countable
+class Container implements ArrayAccess, IteratorAggregate, Countable, PsrContainerInterface
 {
     /**
      * 容器对象实例
@@ -54,6 +56,24 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
      * @var array
      */
     protected $invokeCallback = [];
+
+    /**
+     * 上下文绑定
+     * @var array
+     */
+    protected $contextual = [];
+
+    /**
+     * 标签服务
+     * @var array
+     */
+    protected $tags = [];
+
+    /**
+     * 构建堆栈（用于检测循环依赖）
+     * @var array
+     */
+    protected $buildStack = [];
 
     /**
      * 获取当前容器的实例（单例）
@@ -302,6 +322,88 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
     }
 
     /**
+     * 定义上下文绑定
+     * @access public
+     * @param string $concrete 具体类
+     * @return ContextualBindingBuilder
+     */
+    public function when(string $concrete): ContextualBindingBuilder
+    {
+        return new ContextualBindingBuilder($this, $concrete);
+    }
+
+    /**
+     * 添加上下文绑定
+     * @access public
+     * @param string $concrete 具体类
+     * @param string $abstract 抽象类
+     * @param mixed $implementation 实现类或闭包
+     * @return void
+     */
+    public function addContextualBinding(string $concrete, string $abstract, $implementation): void
+    {
+        $this->contextual[$concrete][$abstract] = $implementation;
+    }
+
+    /**
+     * 获取上下文绑定的具体实现
+     * @access protected
+     * @param string $concrete 具体类
+     * @param string $abstract 抽象类
+     * @return mixed|null
+     */
+    protected function getContextualConcrete(string $concrete, string $abstract)
+    {
+        if (isset($this->contextual[$concrete][$abstract])) {
+            return $this->contextual[$concrete][$abstract];
+        }
+
+        return null;
+    }
+
+    /**
+     * 给服务打标签
+     * @access public
+     * @param array|string $abstracts 类名或标识
+     * @param array|string $tags 标签
+     * @return void
+     */
+    public function tag($abstracts, $tags): void
+    {
+        $tags = is_array($tags) ? $tags : [$tags];
+        $abstracts = is_array($abstracts) ? $abstracts : [$abstracts];
+
+        foreach ($tags as $tag) {
+            if (!isset($this->tags[$tag])) {
+                $this->tags[$tag] = [];
+            }
+
+            foreach ($abstracts as $abstract) {
+                $this->tags[$tag][] = $abstract;
+            }
+        }
+    }
+
+    /**
+     * 获取指定标签的所有服务
+     * @access public
+     * @param string $tag 标签
+     * @return array
+     */
+    public function tagged(string $tag): array
+    {
+        $results = [];
+
+        if (isset($this->tags[$tag])) {
+            foreach ($this->tags[$tag] as $abstract) {
+                $results[] = $this->make($abstract);
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * 执行函数或者闭包方法 支持参数调用
      * @access public
      * @param string|Closure $function 函数或者闭包
@@ -402,9 +504,17 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
      */
     public function invokeClass(string $class, array $vars = [])
     {
+        // 检测循环依赖
+        if (in_array($class, $this->buildStack)) {
+            throw new InvalidArgumentException('Circular dependency detected: ' . implode(' -> ', array_merge($this->buildStack, [$class])));
+        }
+
+        array_push($this->buildStack, $class);
+
         try {
             $reflect = new ReflectionClass($class);
         } catch (ReflectionException $e) {
+            array_pop($this->buildStack);
             throw new ClassNotFoundException('class not exists: ' . $class, $class, $e);
         }
 
@@ -413,6 +523,7 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
             if ($method->isPublic() && $method->isStatic()) {
                 $args   = $this->bindParams($method, $vars);
                 $object = $method->invokeArgs(null, $args);
+                array_pop($this->buildStack);
                 $this->invokeAfter($class, $object);
                 return $object;
             }
@@ -423,6 +534,8 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
         $args = $constructor ? $this->bindParams($constructor, $vars) : [];
 
         $object = $reflect->newInstanceArgs($args);
+
+        array_pop($this->buildStack);
 
         $this->invokeAfter($class, $object);
 
@@ -470,13 +583,16 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
         $params = $reflect->getParameters();
         $args   = [];
 
+        // 获取当前正在构建的类（用于上下文绑定）
+        $buildingClass = !empty($this->buildStack) ? end($this->buildStack) : null;
+
         foreach ($params as $param) {
             $name           = $param->getName();
             $lowerName      = Str::snake($name);
             $reflectionType = $param->getType();
 
             if ($reflectionType && $reflectionType->isBuiltin() === false) {
-                $args[] = $this->getObjectParam($reflectionType->getName(), $vars);
+                $args[] = $this->getObjectParam($reflectionType->getName(), $vars, $buildingClass);
             } elseif (1 == $type && !empty($vars)) {
                 $args[] = array_shift($vars);
             } elseif (0 == $type && array_key_exists($name, $vars)) {
@@ -514,9 +630,10 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
      * @access protected
      * @param string $className 类名
      * @param array  $vars      参数
+     * @param string|null $buildingClass 当前正在构建的类
      * @return mixed
      */
-    protected function getObjectParam(string $className, array &$vars)
+    protected function getObjectParam(string $className, array &$vars, ?string $buildingClass = null)
     {
         $array = $vars;
         $value = array_shift($array);
@@ -525,6 +642,21 @@ class Container implements ArrayAccess, IteratorAggregate, Countable
             $result = $value;
             array_shift($vars);
         } else {
+            // 检查上下文绑定
+            if ($buildingClass !== null) {
+                $concrete = $this->getContextualConcrete($buildingClass, $className);
+                if ($concrete !== null) {
+                    // 如果是闭包，直接执行
+                    if ($concrete instanceof Closure) {
+                        $result = $concrete($this, $vars);
+                    } else {
+                        // 如果是类名，创建实例
+                        $result = $this->make($concrete);
+                    }
+                    return $result;
+                }
+            }
+
             $result = $this->make($className);
         }
 

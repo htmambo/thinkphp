@@ -24,6 +24,12 @@ class App
     static $parser = false;
 
     /**
+     * 新架构 bootstrap 标记
+     * @var bool
+     */
+    private static bool $bootstrapped = false;
+
+    /**
      * 检测当前请求是否为AJAX请求
      *
      * @return bool 如果是AJAX请求返回true，否则返回false
@@ -338,6 +344,78 @@ class App
             throw new \Think\Exception\ForbiddenException(L('_PARAM_ERROR_'));
         }
     }
+
+    /**
+     * Bootstrap 新架构组件
+     *
+     * 初始化 Request/Response 对象，加载 Service Providers
+     *
+     * 设计理念��
+     * - 不改变 ThinkPHP 3 的原有执行流程
+     * - 仅把新架构组件"挂载"到容器，供新代码使用
+     * - 完全向后兼容，旧代码不受影响
+     *
+     * @access private
+     * @return void
+     */
+    private static function bootstrap(): void
+    {
+        // 确保只 bootstrap 一次
+        if (self::$bootstrapped) {
+            return;
+        }
+        self::$bootstrapped = true;
+
+        $container = Container::getInstance();
+
+        // 注册容器自身
+        $container->instance(Container::class, $container);
+
+        // 注册 Request 对象（如果尚未注册）
+        if (!$container->has(Request::class)) {
+            $request = Request::createFromGlobals();
+            $container->instance(Request::class, $request);
+            $container->instance('request', $request);
+        }
+
+        // 注册 Response 对象（如果尚未注册）
+        if (!$container->has(Response::class)) {
+            $response = new Response();
+            $container->instance(Response::class, $response);
+            $container->instance('response', $response);
+        }
+
+        // 加载 Service Providers（从配置读取）
+        $providers = (array)C('SERVICE_PROVIDERS', []);
+
+        if ($providers !== []) {
+            // 延迟加载，避免不必要的依赖
+            if (!class_exists('Think\\Support\\ServiceProviderManager', false)) {
+                // ServiceProviderManager 不存在，跳过
+                return;
+            }
+
+            $manager = new \Think\Support\ServiceProviderManager($container);
+            $container->instance(\Think\Support\ServiceProviderManager::class, $manager);
+
+            try {
+                $manager->register($providers);
+                $manager->boot();
+            } catch (\Throwable $e) {
+                // Service Provider 加载失败不应导致整个应用崩溃
+                // 仅在调试模式下抛出异常
+                if (defined('APP_DEBUG') && APP_DEBUG) {
+                    throw $e;
+                }
+
+                // 记录错误日志
+                if (function_exists('Think\\Log::record')) {
+                    \Think\Log::record('Service Provider bootstrap failed: ' . $e->getMessage(), 'ERROR');
+                }
+            }
+        }
+    }
+
     /**
      * 运行应用实例 入口文件使用的快捷方法
      *
@@ -350,6 +428,11 @@ class App
     {
         // 加载动态应用公共文件和配置
         load_ext_file(COMMON_PATH);
+
+        // Bootstrap 新架构组件（Request/Response/Service Providers）
+        // 向后兼容：不改变原有执行流程，仅挂载新组件到容器
+        self::bootstrap();
+
         // 应用初始化标签
         Hook::listen('app_init');
         App::init();

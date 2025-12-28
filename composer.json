@@ -2,13 +2,21 @@
     "name": "hoping/thinkphp",
     "description": "ThinkPHP 3.2.x继续维护",
     "require": {
-        "php": ">=7.4",
+        "php": ">=8.0",
         "ext-pdo": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
+        "psr/container": "^2.0",
         "monolog/monolog": "^2.10",
         "geoip2/geoip2": "^2.13",
-        "nikic/php-parser": "^v5.6"
+        "nikic/php-parser": "^v5.6",
+        "illuminate/queue": "^11.0",
+        "illuminate/events": "^11.0",
+        "dedoc/scramble": "^0.10"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "barryvdh/laravel-ide-helper": "^4.0"
     },
     "license": "MIT",
     "autoload": {

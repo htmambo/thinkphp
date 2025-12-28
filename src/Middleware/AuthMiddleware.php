@@ -131,38 +131,281 @@ class AuthMiddleware extends Behavior
     }
 
     /**
-     * 验证 JWT Token
+     * 验证 JWT Token (完整签名验证)
+     *
+     * 安全改进：
+     * - 强制校验签名（禁止无签名或伪造签名）
+     * - 防止算法混淆攻击（只接受配置中指定的算法）
+     * - 支持 HS256（HMAC-SHA256）和 RS256（RSA-SHA256）
+     * - 完整的 claims 验证（exp/nbf/iss/aud）
+     *
+     * 配置要求：
+     * - AUTH_JWT_ALG: 算法类型，'HS256' 或 'RS256'（默认 HS256）
+     * - AUTH_JWT_SECRET: HS256 共享密钥（必填）
+     * - AUTH_JWT_PUBLIC_KEY: RS256 公钥（PEM 内容或文件路径）
+     * - AUTH_JWT_LEEWAY: 时间容忍秒数（默认 0）
+     * - AUTH_JWT_ISSUER: 可选签发者验证
+     * - AUTH_JWT_AUDIENCE: 可选受众验证
      *
      * @param string $token JWT Token
      * @return string|null 用户 ID
      */
     private function verifyJwtToken(string $token): ?string
     {
-        // 简单实现：使用 base64 解码（实际应该使用 jwt 库）
-        $parts = explode('.', $token);
+        $token = trim($token);
 
+        // 基础验证：长度限制
+        if ($token === '' || strlen($token) > 8192) {
+            return null;
+        }
+
+        // JWT 格式：header.payload.signature
+        $parts = explode('.', $token);
         if (count($parts) !== 3) {
             return null;
         }
 
-        $payload = base64_decode($parts[1]);
+        [$encodedHeader, $encodedPayload, $encodedSignature] = $parts;
 
-        if ($payload === false) {
+        // Base64URL 解码
+        $headerJson = $this->base64UrlDecode($encodedHeader);
+        $payloadJson = $this->base64UrlDecode($encodedPayload);
+        $signature = $this->base64UrlDecode($encodedSignature);
+
+        if ($headerJson === null || $payloadJson === null || $signature === null) {
             return null;
         }
 
-        $data = json_decode($payload, true);
-
-        if (!is_array($data) || !isset($data['user_id'])) {
+        // 解析和验证 header
+        $header = $this->jsonDecodeArray($headerJson);
+        if ($header === null) {
             return null;
         }
 
-        // 检查过期时间
-        if (isset($data['exp']) && time() > $data['exp']) {
+        // 防止算法混淆：禁止 'none' 和空算法
+        $algInToken = strtoupper((string)($header['alg'] ?? ''));
+        if ($algInToken === '' || $algInToken === 'NONE') {
             return null;
         }
 
-        return (string)$data['user_id'];
+        // 只接受配置中指定的算法
+        $expectedAlg = strtoupper((string)C('AUTH_JWT_ALG', 'HS256'));
+        if ($algInToken !== $expectedAlg) {
+            error_log("Security Warning: JWT algorithm mismatch. Expected: {$expectedAlg}, Got: {$algInToken}");
+            return null;
+        }
+
+        // 验证签名
+        $signingInput = $encodedHeader . '.' . $encodedPayload;
+        if (!$this->verifyJwtSignature($expectedAlg, $signingInput, $signature)) {
+            error_log('Security Warning: JWT signature verification failed');
+            return null;
+        }
+
+        // 解析和验证 claims
+        $claims = $this->jsonDecodeArray($payloadJson);
+        if ($claims === null) {
+            return null;
+        }
+
+        if (!$this->validateJwtClaims($claims)) {
+            return null;
+        }
+
+        // 提取用户 ID
+        $userId = $claims['user_id'] ?? null;
+        if (!is_string($userId) && !is_int($userId)) {
+            return null;
+        }
+
+        return (string)$userId;
+    }
+
+    /**
+     * Base64URL 解码（JWT 规范）
+     *
+     * @param string $input Base64URL 编码的字符串
+     * @return string|null 解码后的原始字符串，失败返回 null
+     */
+    private function base64UrlDecode(string $input): ?string
+    {
+        $input = trim($input);
+        if ($input === '') {
+            return null;
+        }
+
+        // 只允许 base64url 字符集（防止异常字符绕过）
+        if (preg_match('/[^A-Za-z0-9\-_]/', $input)) {
+            return null;
+        }
+
+        // 补齐 padding
+        $remainder = strlen($input) % 4;
+        if ($remainder !== 0) {
+            $input .= str_repeat('=', 4 - $remainder);
+        }
+
+        // 转换 base64url 为 base64
+        $decoded = base64_decode(strtr($input, '-_', '+/'), true);
+
+        if ($decoded === false) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * JSON 解码为数组
+     *
+     * @param string $json JSON 字符串
+     * @return array|null 解码后的数组，失败返回 null
+     */
+    private function jsonDecodeArray(string $json): ?array
+    {
+        $data = json_decode($json, true);
+        if (!is_array($data)) {
+            return null;
+        }
+        return $data;
+    }
+
+    /**
+     * 验证 JWT 签名
+     *
+     * @param string $alg 算法（HS256 或 RS256）
+     * @param string $signingInput 待签名数据（header.payload）
+     * @param string $signatureRaw 原始签名二进制数据
+     * @return bool 验证成功返回 true
+     */
+    private function verifyJwtSignature(string $alg, string $signingInput, string $signatureRaw): bool
+    {
+        if ($alg === 'HS256') {
+            // HMAC-SHA256 验证
+            $secret = (string)C('AUTH_JWT_SECRET', '');
+            if ($secret === '') {
+                error_log('Security Warning: AUTH_JWT_SECRET not configured');
+                return false;
+            }
+
+            $expected = hash_hmac('sha256', $signingInput, $secret, true);
+
+            // 使用 hash_equals 防止时序攻击
+            return hash_equals($expected, $signatureRaw);
+        }
+
+        if ($alg === 'RS256') {
+            // RSA-PSS (PKCS#1 v1.5) SHA256 验证
+            if (!function_exists('openssl_verify')) {
+                error_log('Security Warning: OpenSSL extension not available');
+                return false;
+            }
+
+            $publicKey = $this->loadJwtPublicKey();
+            if ($publicKey === null) {
+                error_log('Security Warning: Failed to load JWT public key');
+                return false;
+            }
+
+            $result = openssl_verify($signingInput, $signatureRaw, $publicKey, OPENSSL_ALGO_SHA256);
+
+            return $result === 1;
+        }
+
+        return false;
+    }
+
+    /**
+     * 读取 RS256 公钥（PEM 内容或文件路径）
+     *
+     * @return string|null PEM 格式的公钥，失败返回 null
+     */
+    private function loadJwtPublicKey(): ?string
+    {
+        $value = C('AUTH_JWT_PUBLIC_KEY', '');
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $value = trim($value);
+
+        // 如果是文件路径，读取文件内容
+        if (is_file($value) && is_readable($value)) {
+            $content = @file_get_contents($value);
+            if ($content === false) {
+                error_log("Security Warning: Failed to read JWT public key file: {$value}");
+                return null;
+            }
+            return $content;
+        }
+
+        // 否则作为 PEM 内容直接使用
+        return $value;
+    }
+
+    /**
+     * 验证 JWT Claims（标准字段）
+     *
+     * 验证字段：
+     * - exp (expiration time): 过期时间
+     * - nbf (not before): 生效时间
+     * - iss (issuer): 签发者（可选）
+     * - aud (audience): 受众（可选，支持 string 或 array）
+     *
+     * @param array $claims JWT claims
+     * @return bool 验证成功返回 true
+     */
+    private function validateJwtClaims(array $claims): bool
+    {
+        $now = time();
+        $leeway = (int)C('AUTH_JWT_LEEWAY', 0);
+
+        // nbf：未到生效时间
+        if (isset($claims['nbf']) && is_numeric($claims['nbf'])) {
+            if (($now + $leeway) < (int)$claims['nbf']) {
+                error_log('Security Warning: JWT token not yet valid (nbf)');
+                return false;
+            }
+        }
+
+        // exp：已过期（JWT 规范：now >= exp 即为过期）
+        if (isset($claims['exp']) && is_numeric($claims['exp'])) {
+            if (($now - $leeway) >= (int)$claims['exp']) {
+                error_log('Security Warning: JWT token expired (exp)');
+                return false;
+            }
+        }
+
+        // iss：可选签发者验证
+        $expectedIss = C('AUTH_JWT_ISSUER', '');
+        if (is_string($expectedIss) && $expectedIss !== '') {
+            if (!isset($claims['iss']) || (string)$claims['iss'] !== $expectedIss) {
+                error_log("Security Warning: JWT issuer mismatch. Expected: {$expectedIss}");
+                return false;
+            }
+        }
+
+        // aud：可选受众验证（支持 string 或 array）
+        $expectedAud = C('AUTH_JWT_AUDIENCE', '');
+        if (is_string($expectedAud) && $expectedAud !== '') {
+            $aud = $claims['aud'] ?? null;
+            if (is_string($aud)) {
+                if ($aud !== $expectedAud) {
+                    error_log("Security Warning: JWT audience mismatch. Expected: {$expectedAud}");
+                    return false;
+                }
+            } elseif (is_array($aud)) {
+                if (!in_array($expectedAud, $aud, true)) {
+                    error_log("Security Warning: JWT audience not in list. Expected: {$expectedAud}");
+                    return false;
+                }
+            } else {
+                error_log('Security Warning: JWT audience invalid type');
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
