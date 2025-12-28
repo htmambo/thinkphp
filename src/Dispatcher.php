@@ -462,6 +462,6 @@ class Dispatcher
             $file = $tmp['file'];
             $line = $tmp['line'];
         }
-        throw new ErrorException(403, L('_VALID_ACCESS_'), $file, $line);
+        throw new \Think\Exception\ForbiddenException(L('_VALID_ACCESS_'));
     }
 }

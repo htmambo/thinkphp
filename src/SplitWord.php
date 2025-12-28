@@ -69,7 +69,7 @@ class SplitWord
         if (method_exists($handler, 'find')) {
             return call_user_func_array(array($handler, 'find'), [$content]);
         } else {
-            throw new ErrorException(500, '查询无效');
+            throw new \Think\Exception\BadRequestException(400, '查询无效');
         }
     }
 }

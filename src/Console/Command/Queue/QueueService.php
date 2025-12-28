@@ -159,11 +159,45 @@ class QueueService extends Service
         }
         $this->output->info($message);
         $cacheObj = Cache::getInstance();
+
+        // 重试机制：防止缓存故障导致无限递归
+        static $retryCounters = [];
+        $retryKey = md5($ckey);
+        $maxRetries = 3;
+        $currentRetry = $retryCounters[$retryKey] ?? 0;
+
+        if ($currentRetry >= $maxRetries) {
+            // 超过最大重试次数，记录错误并返回默认值
+            $this->output->error("缓存操作失败，已重试 {$maxRetries} 次，放弃重试");
+            unset($retryCounters[$retryKey]); // 重置计数器
+            return [
+                'code' => $this->code,
+                'status' => $status ?? static::IS_FAILED,
+                'message' => $message ?? '缓存操作失败',
+                'progress' => $progress ?? '0.00',
+                'history' => [],
+                '_cache_error' => true,
+            ];
+        }
+
         try {
             $data = $cacheObj->getOrSet($ckey, [
                 'code' => $this->code, 'status' => $status, 'message' => $message, 'progress' => $progress, 'history' => [],
             ]);
+            // 成功后重置计数器
+            if (isset($retryCounters[$retryKey])) {
+                unset($retryCounters[$retryKey]);
+            }
         } catch (\Exception | \Error $exception) {
+            // 增加重试计数
+            $retryCounters[$retryKey] = $currentRetry + 1;
+
+            // 指数退避：第一次 100ms，第二次 200ms，第三次 400ms
+            $delay = 100000 * pow(2, $currentRetry);
+            usleep($delay);
+
+            $this->output->warning("缓存操作失败（第 {$retryCounters[$retryKey]} 次重试）: " . $exception->getMessage());
+
             return $this->progress($status, $message, $progress, $backline);
         }
         while (--$backline > -1 && count($data['history']) > 0) array_pop($data['history']);
@@ -211,21 +245,41 @@ class QueueService extends Service
     /**
      * 任务执行成功
      * @param string $message 消息内容
-     * @throws Exception
+     * @return array 返回成功状态
      */
-    public function success(string $message): void
+    public function success(string $message): array
     {
-        throw new Exception($message, 3, $this->code);
+        $this->output->info($message);
+
+        // 更新任务状态为成功
+        $this->progress(static::IS_RUNNED, $message, '100.00');
+
+        return [
+            'status' => 'success',
+            'code' => static::IS_RUNNED,
+            'message' => $message,
+            'queue_code' => $this->code,
+        ];
     }
 
     /**
      * 任务执行失败
      * @param string $message 消息内容
-     * @throws Exception
+     * @return array 返回失败状态
      */
-    public function error(string $message): void
+    public function error(string $message): array
     {
-        throw new Exception($message, static::IS_FAILED, $this->code);
+        $this->output->error($message);
+
+        // 更新任务状态为失败
+        $this->progress(static::IS_FAILED, $message, '0.00');
+
+        return [
+            'status' => 'failed',
+            'code' => static::IS_FAILED,
+            'message' => $message,
+            'queue_code' => $this->code,
+        ];
     }
 
     /**

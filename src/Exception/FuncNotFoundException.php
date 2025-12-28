@@ -17,7 +17,14 @@ class FuncNotFoundException extends RuntimeException
 {
     protected $func;
 
-    public function __construct($message, $func = '', $previous = null)
+    /**
+     * 构造函数
+     *
+     * @param string $message 错误消息
+     * @param string $func 函数名
+     * @param ?\Throwable $previous 前一个异常
+     */
+    public function __construct($message, $func = '', ?\Throwable $previous = null)
     {
         $this->message = $message;
         $this->func   = $func;

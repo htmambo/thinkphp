@@ -180,10 +180,10 @@ abstract class Controller
                 // 检查是否存在默认模版 如果有直接输出模版
                 $this->display();
             } else {
-                throw new ErrorException(404, L('_ERROR_ACTION_') . ':' . ACTION_NAME, $file, $line);
+                throw new \Think\Exception\NotFoundException(L('_ERROR_ACTION_') . ': ' . ACTION_NAME);
             }
         } else {
-            throw new ErrorException(404, __CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'), $file, $line);
+            throw new \Think\Exception\NotFoundException(__CLASS__ . ':' . $method . L('_METHOD_NOT_EXIST_'));
         }
     }
 

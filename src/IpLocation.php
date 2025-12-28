@@ -65,14 +65,14 @@ class IpLocation
     {
         $iplong = ip2long($ip);
         if (!$iplong) {
-            throw new ErrorException(500, L('Invalid IP address: {$var_0}', ['var_0' => $ip]));
+            throw new \Think\Exception\BadRequestException(400, L('Invalid IP address: {$var_0}', ['var_0' => $ip]));
         }
         //调用缓存类型自己的方法
         $handler = self::getInstance($type);
         if (method_exists($handler, 'find')) {
             return call_user_func_array(array($handler, 'find'), [$ip]);
         } else {
-            throw new ErrorException(500, L('_ERROR_ACTION_'));
+            throw new \Think\Exception\BadRequestException(400, L('_ERROR_ACTION_'));
         }
     }
 }

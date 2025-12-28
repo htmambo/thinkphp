@@ -27,12 +27,10 @@ class DbException extends Exception
      * @param  string    $sql
      * @param  string    $func
      * @param  integer   $code
+     * @param  ?\Throwable $previous 前一个异常
      */
-    public function __construct($message, array $config = [], $sql = '', $func = '', $code = DbConstants::ERROR_DB_EXCEPTION)
+    public function __construct($message, array $config = [], $sql = '', $func = '', $code = DbConstants::ERROR_DB_EXCEPTION, ?\Throwable $previous = null)
     {
-        $this->message = $message;
-        $this->code    = $code;
-
         // 处理调试信息
         foreach(['line', 'file', 'function'] as $k) {
             if(isset($config[$k])) {
@@ -64,6 +62,9 @@ class DbException extends Exception
                 $this->setData('SQL', [$this->sanitizeSql($sql)]);
             }
         }
+
+        // 调用父类构造函数，确保异常链完整
+        parent::__construct($message, $code, [], E_ERROR, false, $previous);
     }
 
     /**

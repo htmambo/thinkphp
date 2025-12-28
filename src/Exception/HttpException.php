@@ -11,6 +11,8 @@
 
 namespace Think\Exception;
 
+use Think\Exception;
+
 /**
  * HTTP 异常类
  * 用于处理 HTTP 相关的错误（404, 500 等）
@@ -42,7 +44,7 @@ class HttpException extends Exception implements ThinkExceptionInterface
     public function __construct(
         $statusCode,
         $message = null,
-        \Exception $previous = null,
+        ?\Exception $previous = null,
         array $headers = [],
         $code = 0,
         array $context = []

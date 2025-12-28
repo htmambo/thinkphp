@@ -32,9 +32,13 @@ class Error
     public static function register()
     {
         if (APP_DEBUG) {
+            // 调试模式：显示所有错误（除了 notice）
             error_reporting(E_ALL ^ E_NOTICE ^ E_USER_NOTICE);
+            ini_set('display_errors', '1');
         } else {
-            error_reporting(0);
+            // 生产模式：不显示错误，但记录所有错误到日志
+            error_reporting(E_ALL);  // 记录所有级别的错误
+            ini_set('display_errors', '0');  // 但不显示在页面上
         }
         set_error_handler([__CLASS__, 'appError']);
         set_exception_handler([__CLASS__, 'appException']);
@@ -205,11 +209,12 @@ class Error
             // 异常处理handle
             $class = self::$exceptionHandler;
 
-            if ($class && is_string($class) && class_exists($class) && is_subclass_of($class, "\\think\\exception\\Handle")) {
+            // 使用类常量检查，避免硬编码命名空间
+            if ($class && is_string($class) && class_exists($class) && is_subclass_of($class, \Think\Exception\Handle::class)) {
                 $handle = new $class;
             }
             else {
-                $handle = new Handle;
+                $handle = new \Think\Exception\Handle;
                 if ($class instanceof \Closure) {
                     $handle->setRender($class);
                 }

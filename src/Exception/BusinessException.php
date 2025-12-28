@@ -9,6 +9,8 @@
 
 namespace Think\Exception;
 
+use Think\Exception;
+
 /**
  * 业务逻辑异常类
  * 用于处理业务逻辑错误（如库存不足、余额不足等）

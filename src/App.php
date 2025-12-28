@@ -79,12 +79,12 @@ class App
             C('MODULE_DENY_LIST', $deny);
         }
         if ($allow && count($allow) > 1 && !C('MULTI_MODULE')) {
-            throw new ErrorException(502, L('Multiple modules are not enabled but multiple modules are configured!'));
+            throw new \Think\Exception\BadRequestException(502, L('Multiple modules are not enabled but multiple modules are configured!'));
         }
         if ($allow) {
             $repeat = array_intersect($allow, $deny);
             if ($repeat) {
-                throw new ErrorException(502, L('The configuration file is incorrect, and the prohibited module and the allowable module appear at the same time: {$var_0}', ['var_0' => implode(',', $repeat)]));
+                throw new \Think\Exception\BadRequestException(502, L('The configuration file is incorrect, and the prohibited module and the allowable module appear at the same time: {$var_0}', ['var_0' => implode(',', $repeat)]));
             }
         }
         // 日志目录转换为绝对路径 默认情况下存储到公共模块下面
@@ -239,13 +239,13 @@ class App
         $comment = trim($comment);
         $result = static::$parser->parse($comment);
         if (CHECK_ACTION_COMMENT === 2 && (!$result || !$result['description'])) {
-            throw new ErrorException(500, L('_ACTION_COMMENT_ERROR_'), $file, $line);
+            throw new \Think\Exception\ErrorException(E_ERROR, L('_ACTION_COMMENT_ERROR_'), $file, $line);
         }
         if (isset($result['method']) && $result['method'] && is_string($result['method'])) {
             $result['method'] = strtoupper($result['method']);
             $reqMethod = REQUEST_METHOD ?: 'GET';
             if ($reqMethod !== $result['method']) {
-                throw new ErrorException(502, L('_METHOD_ERROR_'), $file, $line);
+                throw new \Think\Exception\BadRequestException(502, L('_METHOD_ERROR_'));
             }
         } else {
             unset($result['method']);
@@ -260,7 +260,7 @@ class App
     {
         if (!preg_match('/^[A-Za-z_](\w)*$/', $action)) {
             // 非法操作
-            throw new ErrorException(404, L('_METHOD_NOT_EXIST_'));
+            throw new \Think\Exception\NotFoundException(L('_METHOD_NOT_EXIST_'));
         }
         //执行当前操作
         $method = new \ReflectionMethod($module, $action);
@@ -307,7 +307,7 @@ class App
                     } elseif ($param->isDefaultValueAvailable()) {
                         $args[] = $param->getDefaultValue();
                     } else {
-                        throw new ErrorException(403, L('_PARAM_ERROR_') . ':' . $name, $file, $line);
+                        throw new \Think\Exception\ForbiddenException(L('_PARAM_ERROR_') . ': ' . $name);
                     }
                 }
                 // 开启绑定参数过滤机制
@@ -335,7 +335,7 @@ class App
             }
         } else {
             // 操作方法不是Public 抛出异常
-            throw new ErrorException(403, L('_PARAM_ERROR_'), $file, $line);
+            throw new \Think\Exception\ForbiddenException(L('_PARAM_ERROR_'));
         }
     }
     /**

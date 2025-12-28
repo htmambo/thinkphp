@@ -36,6 +36,7 @@ class PDOException extends DbException
             'Driver Error Message' => isset($error[2]) ? $error[2] : '',
         ]);
 
-        parent::__construct($exception->getMessage(), $config, $sql, $func, $code);
+        // 传递原始 PDOException 作为异常链
+        parent::__construct($exception->getMessage(), $config, $sql, $func, $code, $exception);
     }
 }

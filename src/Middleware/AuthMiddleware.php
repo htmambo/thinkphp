@@ -183,6 +183,10 @@ class AuthMiddleware extends Behavior
             }
         } catch (\Exception $e) {
             // 用户模型不存在或查询失败
+            // 记录 debug 级别日志，避免暴露敏感信息
+            if (C('LOG_RECORD')) {
+                \Think\Log::record("Auth middleware: Failed to load user model '{$userModel}' for user '{$userId}'. Error: " . $e->getMessage(), 'DEBUG');
+            }
         }
 
         return null;

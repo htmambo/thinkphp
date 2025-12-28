@@ -299,7 +299,11 @@ class RateLimitMiddleware extends Behavior
                 return $redis;
             }
         } catch (\Exception $e) {
-            // 连接失败
+            // Redis 连接失败，降级到内存驱动
+            // 记录 debug 级别日志
+            if (C('LOG_RECORD')) {
+                \Think\Log::record("RateLimit middleware: Redis connection failed ({$host}:{$port}), falling back to memory driver. Error: " . $e->getMessage(), 'DEBUG');
+            }
         }
 
         return null;

@@ -65,7 +65,7 @@ class Image
                 $class = 'Imagick';
                 break;
             default:
-                throw new ErrorException(502, L('Unsupported image processing library types'));
+                throw new \Think\Exception\BadRequestException(502, L('Unsupported image processing library types'));
         }
 
         /* 引入处理库，实例化图片处理对象 */
