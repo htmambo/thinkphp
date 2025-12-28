@@ -113,6 +113,75 @@ class App
         Hook::listen('url_dispatch_end');
         // TMPL_EXCEPTION_FILE 改为绝对地址
         C('TMPL_EXCEPTION_FILE', realpath(C('TMPL_EXCEPTION_FILE')));
+
+        // 自动注册中间件
+        self::registerMiddlewares();
+    }
+
+    /**
+     * 自动注册所有中间件
+     *
+     * 按照优先级顺序注册中间件：
+     * 1. app_begin: 维护模式 → 跨域 → 限流 → 请求日志
+     * 2. action_begin: 请求日志 → 认证 → 权限 → CSRF → 响应格式化
+     * 3. app_end: 请求日志（结束） → 性能监控
+     *
+     * @access private
+     * @return void
+     */
+    private static function registerMiddlewares(): void
+    {
+        // ============================================
+        // Phase 1: app_begin (请求开始前，最高优先级)
+        // ============================================
+
+        // 1.1 维护模式中间件（最高优先级）
+        if (C('MAINTENANCE_ON', false)) {
+            Hook::add('app_begin', 'Think\\Middleware\\MaintenanceMiddleware');
+        }
+
+        // 1.2 跨域中间件
+        if (C('CORS_ON', false)) {
+            Hook::add('app_begin', 'Think\\Middleware\\CorsMiddleware');
+        }
+
+        // 1.3 限流中间件
+        if (C('RATE_LIMIT_ON', false)) {
+            Hook::add('app_begin', 'Think\\Middleware\\RateLimitMiddleware');
+        }
+
+        // 1.4 请求日志中间件（开始）
+        if (C('REQUEST_LOG_ON', false)) {
+            Hook::add('app_begin', 'Think\\Middleware\\RequestLoggingMiddleware');
+        }
+
+        // ============================================
+        // Phase 2: action_begin (控制器执行前)
+        // ============================================
+
+        // 2.1 认证中间件
+        if (C('AUTH_ON', false)) {
+            Hook::add('action_begin', 'Think\\Middleware\\AuthMiddleware');
+        }
+
+        // 2.2 权限验证中间件
+        if (C('PERMISSION_ON', false)) {
+            Hook::add('action_begin', 'Think\\Middleware\\PermissionMiddleware');
+        }
+
+        // 2.3 CSRF 中间件
+        if (C('CSRF_ON', false)) {
+            Hook::add('action_begin', 'Think\\Middleware\\CsrfMiddleware');
+        }
+
+        // ============================================
+        // Phase 3: app_end (请求结束后）
+        // ============================================
+
+        // 3.1 响应格式化中间件
+        if (C('API_FORMAT_ON', false)) {
+            Hook::add('app_end', 'Think\\Middleware\\ResponseMiddleware');
+        }
     }
     /**
      * 执行应用程序

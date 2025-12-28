@@ -1256,10 +1256,6 @@ class Model
             if (is_string($fields)) {
                 $fields = explode(',', $fields);
             }
-            // 判断令牌验证字段
-            if (C('TOKEN_ON')) {
-                $fields[] = C('TOKEN_NAME', NULL, '__hash__');
-            }
 
             foreach ($data as $key => $val) {
                 if (!in_array($key, $fields)) {
@@ -1270,12 +1266,6 @@ class Model
 
         // 数据自动验证
         if (!$this->autoValidation($data, $type)) {
-            return false;
-        }
-
-        // 表单令牌验证
-        if (!$this->autoCheckToken($data)) {
-            $this->error = L('_TOKEN_ERROR_');
             return false;
         }
 
@@ -1296,63 +1286,6 @@ class Model
         $this->data = $data;
         // 返回创建的数据以供其他调用
         return $data;
-    }
-
-    /**
-     * 自动表单令牌验证
-     *
-     * 支持 ajax 请求的特殊处理，允许在 TOKEN_RESET_AUTO 配置下自动重新生成令牌
-     *
-     * @access public
-     * @param array $data 提交的数据
-     * @return boolean
-     */
-    public function autoCheckToken($data): bool
-    {
-        // 支持使用token(false) 关闭令牌验证
-        if (isset($this->options['token']) && !$this->options['token']) {
-            return true;
-        }
-
-        if (C('TOKEN_ON')) {
-            $name = C('TOKEN_NAME', NULL, '__hash__');
-            if (!isset($data[$name]) || !isset($_SESSION[$name])) {
-                // 令牌数据无效
-                return false;
-            }
-
-            // 令牌验证
-            [$key, $value] = explode('_', $data[$name]);
-            if (isset($_SESSION[$name][$key]) && $value && $_SESSION[$name][$key] === $value) {
-                // 防止重复提交
-                unset($_SESSION[$name][$key]); // 验证完成销毁session
-
-                // 支持 ajax 请求的自动令牌重置
-                // 对于 ajax 请求，可以在验证成功后自动生成新令牌
-                if ($this->isAjaxRequest() && C('TOKEN_RESET_AUTO', false, false)) {
-                    // 生��新令牌供下次 ajax 请求使用
-                    if (!isset($_SESSION[$name])) {
-                        $_SESSION[$name] = [];
-                    }
-                    $newKey = md5(microtime(true));
-                    $newValue = md5($newKey . C('TOKEN_CRYPTO_KEY', null, ''));
-                    $_SESSION[$name][$newKey] = $newValue;
-                    // 将新令牌存储到配置中，供前端获取
-                    if (function_exists('Think\\assign')) {
-                        assign('__TOKEN__', $newKey . '_' . $newValue);
-                    }
-                }
-
-                return true;
-            }
-            // 开启TOKEN重置
-            if (C('TOKEN_RESET')) {
-                unset($_SESSION[$name][$key]);
-            }
-
-            return false;
-        }
-        return true;
     }
 
     /**

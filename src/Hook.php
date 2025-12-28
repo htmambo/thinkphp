@@ -144,7 +144,7 @@ class Hook
     public static function exec($name, $tag, &$params = null)
     {
         APP_DEBUG && G($name . '_start');
-        if ('Behavior' == substr($name, -8)) {
+        if ('Behavior' == substr($name, -8) || 'Middleware' == substr($name, -10)) {
             // 行为扩展必须用run入口方法
             $tag = 'run';
         }

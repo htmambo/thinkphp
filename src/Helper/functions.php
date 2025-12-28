@@ -1923,3 +1923,166 @@ function isEmail($str)
     $pattern = "/^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,})$/";
     return preg_match($pattern, $str);
 }
+
+/**
+ * ============================================
+ * Laravel 风格 CSRF 助手函数（推荐使用）
+ * ============================================
+ */
+
+/**
+ * 生成 CSRF Token hidden input（Laravel @csrf）
+ *
+ * 使用示例：
+ * ```html
+ * <form method="POST">
+ *     {:csrf_field()}
+ *     <input type="text" name="username">
+ *     <button>提交</button>
+ * </form>
+ * ```
+ *
+ * @param string|null $tokenId Token ID（可选）
+ * @return string HTML hidden input
+ */
+function csrf_field($tokenId = null)
+{
+    if (!C('CSRF_ON', null, true)) {
+        return '';
+    }
+
+    $manager = new \Think\Security\CsrfTokenManager();
+    $token = $manager->getToken($tokenId);
+
+    $name = C('CSRF_TOKEN_NAME', '_token');
+
+    return sprintf(
+        '<input type="hidden" name="%s" value="%s" />',
+        htmlspecialchars($name, ENT_QUOTES, 'UTF-8'),
+        htmlspecialchars($token->getValue(), ENT_QUOTES, 'UTF-8')
+    );
+}
+
+/**
+ * 生成 CSRF Token meta 标签
+ *
+ * 使用示例：
+ * ```html
+ * <head>
+ *     {:csrf_meta()}
+ * </head>
+ * ```
+ *
+ * @param string|null $tokenId Token ID（可选）
+ * @return string HTML meta 标签
+ */
+function csrf_meta($tokenId = null)
+{
+    if (!C('CSRF_ON', null, true)) {
+        return '';
+    }
+
+    $manager = new \Think\Security\CsrfTokenManager();
+    $token = $manager->getToken($tokenId);
+
+    $headerName = C('CSRF_HEADER_NAME', 'X-CSRF-TOKEN');
+
+    $html = sprintf(
+        '<meta name="csrf-token" content="%s" />',
+        htmlspecialchars($token->getValue(), ENT_QUOTES, 'UTF-8')
+    );
+
+    $html .= sprintf(
+        '<meta name="csrf-header" content="%s" />',
+        htmlspecialchars($headerName, ENT_QUOTES, 'UTF-8')
+    );
+
+    return $html;
+}
+
+/**
+ * 获取 CSRF Token 值
+ *
+ * 使用示例：
+ * ```php
+ * <script>
+ * var token = '{:csrf_value()}';
+ * </script>
+ * ```
+ *
+ * @param string|null $tokenId Token ID（可选）
+ * @return string Token 值
+ */
+function csrf_value($tokenId = null)
+{
+    if (!C('CSRF_ON', null, true)) {
+        return '';
+    }
+
+    $manager = new \Think\Security\CsrfTokenManager();
+    $token = $manager->getToken($tokenId);
+
+    return $token->getValue();
+}
+
+/**
+ * 刷新 CSRF Token
+ *
+ * 使用示例：
+ * ```php
+ * // 刷新当前 token
+ * {:csrf_refresh()}
+ *
+ * // 刷新指定 token
+ * {:csrf_refresh('user_login')}
+ * ```
+ *
+ * @param string|null $tokenId Token ID（可选）
+ * @return string 新的 Token 值
+ */
+function csrf_refresh($tokenId = null)
+{
+    if (!C('CSRF_ON', null, true)) {
+        return '';
+    }
+
+    $manager = new \Think\Security\CsrfTokenManager();
+    $token = $manager->refresh($tokenId);
+
+    return $token->getValue();
+}
+
+/**
+ * 验证 CSRF Token（手动验证）
+ *
+ * 使用示例：
+ * ```php
+ * $isValid = csrf_verify($_POST['_token']);
+ * if (!$isValid) {
+ *     // 处理验证失败
+ * }
+ * ```
+ *
+ * 注意：通常不需要手动调用，中间件会自动验证
+ *
+ * @param string $value Token 值
+ * @param string|null $tokenId Token ID（可选）
+ * @return bool
+ */
+function csrf_verify($value, $tokenId = null)
+{
+    if (!C('CSRF_ON', null, true)) {
+        return true;
+    }
+
+    $manager = new \Think\Security\CsrfTokenManager();
+
+    // 如果是一次性 token，使用 validateAndRemove
+    $oneTime = C('CSRF_ONE_TIME', null, false);
+
+    if ($oneTime) {
+        return $manager->validateAndRemove($value, $tokenId);
+    } else {
+        return $manager->validate($value, $tokenId);
+    }
+}
