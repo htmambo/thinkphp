@@ -350,13 +350,14 @@ class App
      *
      * 初始化 Request/Response 对象，加载 Service Providers
      *
-     * 设计理念��
+     * 设计理念
      * - 不改变 ThinkPHP 3 的原有执行流程
      * - 仅把新架构组件"挂载"到容器，供新代码使用
      * - 完全向后兼容，旧代码不受影响
      *
      * @access private
      * @return void
+     * @throws \Throwable
      */
     private static function bootstrap(): void
     {

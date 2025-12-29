@@ -18,7 +18,6 @@ use ArrayIterator;
 use Closure;
 use Countable;
 use IteratorAggregate;
-use Psr\Container\ContainerInterface as PsrContainerInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
@@ -31,8 +30,7 @@ use Think\Helper\Str;
 use Think\Support\ContextualBindingBuilder;
 use Traversable;
 
-class Container implements ArrayAccess, IteratorAggregate, Countable, PsrContainerInterface
-{
+class Container implements ArrayAccess, IteratorAggregate, Countable {
     /**
      * 容器对象实例
      * @var Container|Closure

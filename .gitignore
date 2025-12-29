@@ -3,4 +3,4 @@
 @eaDir
 .DS_Store
 .env
-docs/*
+.claude/*
