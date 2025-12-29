@@ -12,7 +12,8 @@
         "nikic/php-parser": "^v5.6",
         "illuminate/queue": "^11.0",
         "illuminate/events": "^11.0",
-        "dedoc/scramble": "^0.10"
+        "dedoc/scramble": "^0.10",
+        "cweagans/composer-patches": "^1.7"
     },
     "require-dev": {
         "phpunit/phpunit": "^10.5",
@@ -36,8 +37,21 @@
         }
     ],
     "config": {
-        "preferred-install": "dist"
+        "preferred-install": "dist",
+        "allow-plugins": {
+            "cweagans/composer-patches": true
+        }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "extra": {
+        "composer-patches": {
+            "exit-on-patch-failure": false
+        },
+        "patches": {
+            "illuminate/support": {
+                "Disable Illuminate Support helpers autoload to avoid ThinkPHP E()/env() conflicts": "patches/illuminate-support-disable-helpers.patch"
+            }
+        }
+    }
 }
