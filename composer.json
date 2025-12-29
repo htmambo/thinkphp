@@ -18,8 +18,7 @@
         "psr-4": {
             "Think\\": "src/",
             "Phinx\\": "Phinx/",
-            "Readability\\": "Readability/",
-            "Illuminate\\": "Illuminate/"
+            "Readability\\": "Readability/"
         },
         "files": [
             "src/ThinkPHP.php"
